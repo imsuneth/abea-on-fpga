@@ -1,5 +1,9 @@
 #include "f5c.h"
 
+int32_t align(AlignedPair* out_2, char* sequence, int32_t sequence_len,
+              event_table events, model_t* models, scalings_t scaling,
+              float sample_rate);
+
 void load_align_arguments(core_t *core, db_t *db, int32_t i) {
     char align_args_dump_dir[16] = "align_args_dump";
     char foldername[40];
@@ -75,7 +79,7 @@ int main(){
     //create necessary inputs
 
     //call align function
-
+    
     //store the output
 
     //compare with original output
