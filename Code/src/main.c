@@ -25,30 +25,33 @@ void load_align_arguments(core_t *core, db_t *db, int32_t i, const char * align_
     snprintf(filename, sizeof(filename), "%s/%s", foldername, "event_align_pairs.dat");
     fp = fopen(filename, "r");
     int32_t pairs = db->n_event_align_pairs[i];
+    db->event_align_pairs[i] = (AlignedPair *)malloc(sizeof(AlignedPair)*pairs);
     read_count2 = fread(db->event_align_pairs[i], sizeof(AlignedPair), pairs, fp);
     assert(read_count2 == pairs);
     fclose(fp);
 
-    // db->read[i] - sequence
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "read[i].dat");
-    fp = fopen(filename, "r");
-    int32_t read_len = db->read_len[i];
-    read_count2 = fread(db->read[i], sizeof(char), read_len, fp);
-    assert(read_count2 == read_len);
-    fclose(fp);
-    
     // db->read_len[i] - sequence_len
     snprintf(filename, sizeof(filename), "%s/%s", foldername, "read_len[i].dat");
     fp = fopen(filename, "r");
     read_count = fread(&(db->read_len[i]), sizeof(int32_t), 1, fp);
     assert(read_count == 1);
     fclose(fp);
-
+    
+    // db->read[i] - sequence
+    snprintf(filename, sizeof(filename), "%s/%s", foldername, "read[i].dat");
+    fp = fopen(filename, "r");
+    int32_t read_len = db->read_len[i];
+    db->read[i] = (char*)malloc(sizeof(char)*read_len);
+    read_count2 = fread(db->read[i], sizeof(char), read_len, fp);
+    assert(read_count2 == read_len);
+    fclose(fp);
+    
     // db->et[i] - events
     snprintf(filename, sizeof(filename), "%s/%s", foldername, "et[i].dat");
     fp = fopen(filename, "r");
     read_count = fread(&(db->et[i]), sizeof(event_table), 1, fp);
     size_t n_events = db->et[i].n;
+    db->et[i].event = (event_t*)malloc(sizeof(event_t)*n_events);
     read_count = fread(db->et[i].event, sizeof(event_t), n_events, fp);
     assert(read_count == n_events);
     fclose(fp);
@@ -56,6 +59,7 @@ void load_align_arguments(core_t *core, db_t *db, int32_t i, const char * align_
     // core->model - models
     snprintf(filename, sizeof(filename), "%s/%s", foldername, "model.dat");
     fp = fopen(filename, "r");
+    core->model = (model_t*)malloc(sizeof(model_t)*NUM_KMER);
     read_count = fread(core->model, sizeof(model_t), NUM_KMER, fp);
     assert(read_count == NUM_KMER);
     fclose(fp);
@@ -70,21 +74,82 @@ void load_align_arguments(core_t *core, db_t *db, int32_t i, const char * align_
     // db->f5[i]->sample_rate - sample_rate
     snprintf(filename, sizeof(filename), "%s/%s", foldername, "f5[i]->sample_rate.dat");
     fp = fopen(filename, "r");
+    db->f5[i] = (fast5_t*)malloc(sizeof(fast5_t));
     read_count = fread(&(db->f5[i]->sample_rate), sizeof(float), 1, fp);
     assert(read_count == 1);
     fclose(fp); 
 }
+/*
+int32_t align(AlignedPair* out_2, char* sequence, int32_t sequence_len,
+              event_table events, model_t* models, scalings_t scaling,
+              float sample_rate) {*/
+int check_event_align_pairs(AlignedPair* pair_1,AlignedPair* pair_2,int32_t size);
 
 int main(){
     const char * align_args_dump_dir = "align_args_dump";
-    //load_align_arguments(core, db, i, align_args_dump_dir);
+
+    db_t* db;
+    db = (db_t*)malloc(sizeof(db_t));
+    db->n_event_align_pairs = (int32_t*)malloc(sizeof(int32_t)*143);
+    db->event_align_pairs = (AlignedPair**)malloc(sizeof(AlignedPair*)*143);
+    db->read_len = (int32_t*)malloc(sizeof(AlignedPair)*143);
+    db->read = (char**)malloc(sizeof(char*)*143);
+    db->et = (event_table*)malloc(sizeof(event_table)*143);
+    db->scalings = (scalings_t*)malloc(sizeof(scalings_t)*143);
+    db->f5 = (fast5_t**)malloc(sizeof(fast5_t*)*143);
+
+    core_t* core;
+    core = (core_t*)malloc(sizeof(core_t));
+    core->model = (model_t*)malloc(sizeof(model_t)*143);
+
+    db_t* db_out;
+    db_out = (db_t*)malloc(sizeof(db_t));
+    db_out->n_event_align_pairs = (int32_t*)malloc(sizeof(int32_t)*143);
+    db_out->event_align_pairs = (AlignedPair**)malloc(sizeof(AlignedPair*)*143);
+
     //create necessary inputs
-    
 
-    //call align function
-    
-    //store the output
+    for (int i=0; i<143; i++){
 
-    //compare with original output
-    
+        load_align_arguments(core, db, i, align_args_dump_dir);
+
+        int32_t pairs = db->n_event_align_pairs[i];
+
+        db_out->event_align_pairs[i] = (AlignedPair *)malloc(sizeof(AlignedPair)*pairs);
+
+        //call align function and store the output
+        db_out->n_event_align_pairs[i] =
+            align(db_out->event_align_pairs[i], db->read[i], db->read_len[i], db->et[i],
+                core->model, db->scalings[i], db->f5[i]->sample_rate);
+
+        //compare with original output
+        
+        int32_t n_event_align_pairs= db->n_event_align_pairs[i];
+        int32_t n_event_align_pairs_out= db_out->n_event_align_pairs[i];
+        
+        if (n_event_align_pairs!=n_event_align_pairs_out){
+            fprintf(stderr,"%d=\t Found conflict result in n_event_align_pairs\n",i);
+            break;
+        }else{
+            if (check_event_align_pairs(db_out->event_align_pairs[i],db->event_align_pairs[i],pairs)==0){
+                fprintf(stderr,"%d=\t Found conflict in event_align_pairs\n",i);
+            }else{
+                fprintf(stderr,"%d=\t Run pass\n",i);
+        }
+        }
+
+    }
+
 }
+
+int check_event_align_pairs(AlignedPair* pair_1,AlignedPair* pair_2,int32_t size){
+    int i;
+    for (i=0;i<size;i++){
+        if(pair_1[i].read_pos!=pair_2[i].read_pos || pair_1[i].ref_pos!=pair_2[i].ref_pos){
+            return 0;
+            }
+        }
+    return 1;
+}
+
+

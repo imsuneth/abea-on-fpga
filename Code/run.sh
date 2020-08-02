@@ -1,2 +1,2 @@
-g++ -Wall -o build/main.o src/main.c  src/align
-./main
+g++ -Wall  src/align.c src/main.c -o build/main
+./build/main    
