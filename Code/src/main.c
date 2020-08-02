@@ -72,5 +72,12 @@ void load_align_arguments(core_t *core, db_t *db, int32_t i) {
 }
 
 int main(){
+    //create necessary inputs
+
+    //call align function
+
+    //store the output
+
+    //compare with original output
     
 }
