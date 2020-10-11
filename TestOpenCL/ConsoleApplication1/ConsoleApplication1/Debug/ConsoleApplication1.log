@@ -1,3 +1,1 @@
-﻿  ConsoleApplication1.cpp
-  cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 220 (OpenCL 2.2)
-  ConsoleApplication1.vcxproj -> C:\Users\Pubudu\Desktop\TestOpenCL\ConsoleApplication1\Debug\ConsoleApplication1.exe
+﻿

@@ -6,7 +6,7 @@
 #include <OpenCL/cl.h>
 #else
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-#include <CL/cl.h>
+#include <cl/cl.h>
 #endif
 const int ARRAY_SIZE = 10;
 struct twoArrays

@@ -1,25 +1,2 @@
 ﻿  Preprocessing: Template.cl
-  Ignoring -TARGETOS option - not supported for 64-bit version of this tool 
-  
-  Using build options:  -I "D:\FYP\abea-on-fpga-opencl\GPUOpenCLProjectforWindows"
-  Platform name: Intel(R) OpenCL
-  Device name: Intel(R) HD Graphics 4600
-  Device version: OpenCL 1.2 
-  Device vendor: Intel(R) Corporation
-  Device profile: FULL_PROFILE
-  fcl build 1 succeeded.
-  fcl build 2 succeeded.
-  bcl build succeeded.
-  
-  Add info:
-  	Maximum work-group size: 512
-  	Compiler work-group size: (0, 0, 0)
-  	Local memory size: 0
-  	Preferred multiple of work-group size: 32
-  	Minimum amount of private memory: 0
-  
-  Build succeeded!
-  
-  GPUOpenCLProjectforWindows.vcxproj -> D:\FYP\abea-on-fpga-opencl\GPUOpenCLProjectforWindows\x64\Release\GPUOpenCLProjectforWindows.exe
-  Template.cl
-          1 file(s) copied.
+C:\Program Files (x86)\IntelSWTools\system_studio_2020\OpenCL\sdk\BuildCustomizations\IntelOpenCL.targets(49,5): error MSB3721: The command ""C:\Program Files (x86)\IntelSWTools\system_studio_2020\OpenCL\sdk\bin\x64\ioc64.exe" -cmd=build -input="D:\FYP\abea-on-fpga-opencl\GPUOpenCLProjectforWindows\Template.cl" -output="x64\Release\Template.out" -VS -device=GPU  -targetos=current            -bo="           "" exited with code -1073741511.
