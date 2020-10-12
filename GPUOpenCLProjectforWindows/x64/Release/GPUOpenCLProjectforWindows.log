@@ -1,0 +1,2 @@
+﻿  Preprocessing: Template.cl
+C:\Program Files (x86)\IntelSWTools\system_studio_2020\OpenCL\sdk\BuildCustomizations\IntelOpenCL.targets(49,5): error MSB3721: The command ""C:\Program Files (x86)\IntelSWTools\system_studio_2020\OpenCL\sdk\bin\x64\ioc64.exe" -cmd=build -input="D:\FYP\abea-on-fpga-opencl\GPUOpenCLProjectforWindows\Template.cl" -output="x64\Release\Template.out" -VS -device=GPU  -targetos=current            -bo="           "" exited with code -1073741511.

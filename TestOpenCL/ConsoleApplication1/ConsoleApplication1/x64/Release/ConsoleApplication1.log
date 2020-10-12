@@ -1,8 +1,2 @@
 ﻿  ConsoleApplication1.cpp
-  cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 220 (OpenCL 2.2)
-  Generating code
-  1 of 185 functions ( 0.5%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
-  Finished generating code
-  ConsoleApplication1.vcxproj -> C:\Users\Pubudu\Desktop\TestOpenCL\ConsoleApplication1\x64\Release\ConsoleApplication1.exe
+D:\FYP\abea-on-fpga-opencl\TestOpenCL\ConsoleApplication1\ConsoleApplication1\ConsoleApplication1.cpp(9,10): fatal error C1083: Cannot open include file: 'CL/cl.h': No such file or directory
