@@ -1,0 +1,371 @@
+Compiler Command: aoc -march=emulator -v -board=de5net_a7 device/align.cl -o bin/align.aocx
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:35:21: error: use of undeclared identifier 'ALN_BANDWIDTH'
+    int bandwidth = ALN_BANDWIDTH;
+                    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:36:26: error: use of undeclared identifier 'ALN_BANDWIDTH'
+    int half_bandwidth = ALN_BANDWIDTH / 2;
+                         ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:58:35: warning: implicitly declaring C library function 'malloc' with type 'void *(unsigned long)'
+    size_t* kmer_ranks = (size_t*)malloc(sizeof(size_t) * n_kmers);
+                                  ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:58:35: note: please include the header <stdlib.h> or explicitly provide a declaration for 'malloc'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:59:5: error: function 'MALLOC_CHK' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    MALLOC_CHK(kmer_ranks);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:59:5: error: function 'MALLOC_CHK' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:59:5: error: use of undeclared identifier 'MALLOC_CHK'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:63:15: error: initializing 'char *' with an expression of type '__attribute__((address_space(16776960))) char *' changes address space of pointer
+        char* substring = &sequence[i];
+              ^           ~~~~~~~~~~~~
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:64:25: error: function 'get_kmer_rank' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        kmer_ranks[i] = get_kmer_rank(substring, k);
+                        ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:64:25: error: use of undeclared identifier 'get_kmer_rank'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:75:5: error: function 'MALLOC_CHK' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    MALLOC_CHK(bands);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:75:5: error: function 'MALLOC_CHK' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:75:5: error: use of undeclared identifier 'MALLOC_CHK'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:77:5: error: function 'MALLOC_CHK' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    MALLOC_CHK(trace);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:77:5: error: function 'MALLOC_CHK' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:77:5: error: use of undeclared identifier 'MALLOC_CHK'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:88:13: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            BAND_ARRAY(i,j) = -INFINITY;
+            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:88:13: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:88:13: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:89:13: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            TRACE_ARRAY(i,j) = 0;
+            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:89:13: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:89:13: error: use of undeclared identifier 'TRACE_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:104:5: error: function 'MALLOC_CHK' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    MALLOC_CHK(band_lower_left);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:104:5: error: function 'MALLOC_CHK' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:104:5: error: use of undeclared identifier 'MALLOC_CHK'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:111:26: error: function 'move_down' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    band_lower_left[1] = move_down(band_lower_left[0]);
+                         ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:111:26: error: use of undeclared identifier 'move_down'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:113:29: error: function 'band_kmer_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    int start_cell_offset = band_kmer_to_offset(0, -1);
+                            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:113:29: error: use of undeclared identifier 'band_kmer_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:114:5: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    assert(is_offset_valid(start_cell_offset));
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:114:5: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:114:5: error: use of undeclared identifier 'assert'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:114:12: error: function 'is_offset_valid' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    assert(is_offset_valid(start_cell_offset));
+           ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:114:12: error: use of undeclared identifier 'is_offset_valid'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:115:5: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    assert(band_event_to_offset(0, -1) == start_cell_offset);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:115:5: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:115:5: error: use of undeclared identifier 'assert'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:115:12: error: function 'band_event_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    assert(band_event_to_offset(0, -1) == start_cell_offset);
+           ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:115:12: error: use of undeclared identifier 'band_event_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:116:5: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    BAND_ARRAY(0,start_cell_offset) = 0.0f;
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:116:5: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:116:5: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:119:29: error: function 'band_event_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    int first_trim_offset = band_event_to_offset(1, 0);
+                            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:119:29: error: use of undeclared identifier 'band_event_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:120:5: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    assert(kmer_at_offset(1, first_trim_offset) == -1);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:120:5: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:120:5: error: use of undeclared identifier 'assert'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:120:12: error: function 'kmer_at_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    assert(kmer_at_offset(1, first_trim_offset) == -1);
+           ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:120:12: error: use of undeclared identifier 'kmer_at_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:121:5: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    assert(is_offset_valid(first_trim_offset));
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:121:5: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:121:5: error: use of undeclared identifier 'assert'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:121:12: error: function 'is_offset_valid' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    assert(is_offset_valid(first_trim_offset));
+           ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:121:12: error: use of undeclared identifier 'is_offset_valid'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:122:5: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    BAND_ARRAY(1,first_trim_offset) = lp_trim;
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:122:5: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:122:5: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:123:5: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    TRACE_ARRAY(1,first_trim_offset) = FROM_U;
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:123:5: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:123:5: error: use of undeclared identifier 'TRACE_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:136:20: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        float ll = BAND_ARRAY(band_idx - 1,0);
+                   ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:136:20: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:137:20: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        float ur = BAND_ARRAY(band_idx - 1,bandwidth - 1);
+                   ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:137:20: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:150:17: error: function 'move_right' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                move_right(band_lower_left[band_idx - 1]);
+                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:150:17: error: use of undeclared identifier 'move_right'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:153:17: error: function 'move_down' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                move_down(band_lower_left[band_idx - 1]);
+                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:153:17: error: use of undeclared identifier 'move_down'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:156:27: error: function 'band_kmer_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int trim_offset = band_kmer_to_offset(band_idx, -1);
+                          ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:156:27: error: use of undeclared identifier 'band_kmer_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:157:13: error: function 'is_offset_valid' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        if (is_offset_valid(trim_offset)) {
+            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:157:13: error: use of undeclared identifier 'is_offset_valid'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:158:13: error: use of undeclared identifier 'int64_t'
+            int64_t event_idx = event_at_offset(band_idx, trim_offset);
+            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:159:17: error: use of undeclared identifier 'event_idx'; did you mean 'event_t'?
+            if (event_idx >= 0 && event_idx < (int64_t)n_events) {
+                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:159:35: error: use of undeclared identifier 'event_idx'; did you mean 'event_t'?
+            if (event_idx >= 0 && event_idx < (int64_t)n_events) {
+                                  ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:159:48: error: use of undeclared identifier 'int64_t'
+            if (event_idx >= 0 && event_idx < (int64_t)n_events) {
+                                               ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:160:17: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                BAND_ARRAY(band_idx,trim_offset) = lp_trim * (event_idx + 1);
+                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:160:17: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:160:17: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:160:63: error: use of undeclared identifier 'event_idx'; did you mean 'event_t'?
+                BAND_ARRAY(band_idx,trim_offset) = lp_trim * (event_idx + 1);
+                                                              ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:161:17: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                TRACE_ARRAY(band_idx,trim_offset) = FROM_U;
+                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:161:17: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:161:17: error: use of undeclared identifier 'TRACE_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:163:17: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                BAND_ARRAY(band_idx,trim_offset) = -INFINITY;
+                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:163:17: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:163:17: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:169:31: error: function 'band_kmer_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int kmer_min_offset = band_kmer_to_offset(band_idx, 0);
+                              ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:169:31: error: use of undeclared identifier 'band_kmer_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:170:31: error: function 'band_kmer_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int kmer_max_offset = band_kmer_to_offset(band_idx, n_kmers);
+                              ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:170:31: error: use of undeclared identifier 'band_kmer_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:171:32: error: function 'band_event_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int event_min_offset = band_event_to_offset(band_idx, n_events - 1);
+                               ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:171:32: error: use of undeclared identifier 'band_event_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:172:32: error: function 'band_event_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int event_max_offset = band_event_to_offset(band_idx, -1);
+                               ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:172:32: error: use of undeclared identifier 'band_event_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:174:26: error: function 'MAX' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int min_offset = MAX(kmer_min_offset, event_min_offset);
+                         ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:174:26: error: use of undeclared identifier 'MAX'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:175:22: error: function 'MAX' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        min_offset = MAX(min_offset, 0);
+                     ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:175:22: error: use of undeclared identifier 'MAX'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:177:26: error: function 'MIN' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int max_offset = MIN(kmer_max_offset, event_max_offset);
+                         ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:177:26: error: use of undeclared identifier 'MIN'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:178:22: error: function 'MIN' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        max_offset = MIN(max_offset, bandwidth);
+                     ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:178:22: error: use of undeclared identifier 'MIN'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:181:29: error: function 'event_at_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            int event_idx = event_at_offset(band_idx, offset);
+                            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:181:29: error: use of undeclared identifier 'event_at_offset'; did you mean 'event_max_offset'?
+            int event_idx = event_at_offset(band_idx, offset);
+                            ^~~~~~~~~~~~~~~
+                            event_max_offset
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:172:13: note: 'event_max_offset' declared here
+        int event_max_offset = band_event_to_offset(band_idx, -1);
+            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:181:44: error: called object type 'int' is not a function or function pointer
+            int event_idx = event_at_offset(band_idx, offset);
+                            ~~~~~~~~~~~~~~~^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:182:28: error: function 'kmer_at_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            int kmer_idx = kmer_at_offset(band_idx, offset);
+                           ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:182:28: error: use of undeclared identifier 'kmer_at_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:186:29: error: function 'band_event_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            int offset_up = band_event_to_offset(band_idx - 1, event_idx - 1);
+                            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:186:29: error: use of undeclared identifier 'band_event_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:187:31: error: function 'band_kmer_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            int offset_left = band_kmer_to_offset(band_idx - 1, kmer_idx - 1);
+                              ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:187:31: error: use of undeclared identifier 'band_kmer_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:188:31: error: function 'band_kmer_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            int offset_diag = band_kmer_to_offset(band_idx - 2, kmer_idx - 1);
+                              ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:188:31: error: use of undeclared identifier 'band_kmer_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:200:24: error: function 'is_offset_valid' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            float up = is_offset_valid(offset_up)
+                       ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:200:24: error: use of undeclared identifier 'is_offset_valid'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:201:30: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                           ? BAND_ARRAY(band_idx - 1,offset_up)
+                             ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:201:30: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:203:26: error: function 'is_offset_valid' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            float left = is_offset_valid(offset_left)
+                         ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:203:26: error: use of undeclared identifier 'is_offset_valid'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:204:32: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                             ? BAND_ARRAY(band_idx - 1,offset_left)
+                               ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:204:32: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:206:26: error: function 'is_offset_valid' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            float diag = is_offset_valid(offset_diag)
+                         ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:206:26: error: use of undeclared identifier 'is_offset_valid'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:207:32: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                             ? BAND_ARRAY(band_idx - 2,offset_diag)
+                               ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:207:32: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:211:17: error: function 'log_probability_match_r9' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                log_probability_match_r9(scaling, models, events, event_idx,
+                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:211:17: error: use of undeclared identifier 'log_probability_match_r9'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:238:13: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            BAND_ARRAY(band_idx,offset) = max_score;
+            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:238:13: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:238:13: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:239:13: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            TRACE_ARRAY(band_idx,offset) = from;
+            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:239:13: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:239:13: error: use of undeclared identifier 'TRACE_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:262:24: error: function 'event_kmer_to_band' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int band_idx = event_kmer_to_band(event_idx, curr_kmer_idx);
+                       ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:262:24: error: use of undeclared identifier 'event_kmer_to_band'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:266:9: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        assert((size_t)band_idx < n_bands);
+        ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:266:9: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:266:9: error: use of undeclared identifier 'assert'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:268:22: error: function 'band_event_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int offset = band_event_to_offset(band_idx, event_idx);
+                     ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:268:22: error: use of undeclared identifier 'band_event_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:269:13: error: function 'is_offset_valid' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        if (is_offset_valid(offset)) {
+            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:269:13: error: use of undeclared identifier 'is_offset_valid'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:271:17: error: function 'BAND_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+                BAND_ARRAY(band_idx,offset) + (n_events - event_idx) * lp_trim;
+                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:271:17: error: use of undeclared identifier 'BAND_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:289:9: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        assert(outIndex < (int)(n_events * 2));
+        ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:289:9: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:289:9: error: use of undeclared identifier 'assert'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:302:15: error: initializing 'char *' with an expression of type '__attribute__((address_space(16776960))) char *' changes address space of pointer
+        char* substring = &sequence[curr_kmer_idx];
+              ^           ~~~~~~~~~~~~~~~~~~~~~~~~
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:303:28: error: function 'get_kmer_rank' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        size_t kmer_rank = get_kmer_rank(substring, k);
+                           ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:303:28: error: use of undeclared identifier 'get_kmer_rank'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:305:29: error: function 'log_probability_match_r9' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        float tempLogProb = log_probability_match_r9(
+                            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:305:29: error: use of undeclared identifier 'log_probability_match_r9'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:314:24: error: function 'event_kmer_to_band' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int band_idx = event_kmer_to_band(curr_event_idx, curr_kmer_idx);
+                       ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:314:24: error: use of undeclared identifier 'event_kmer_to_band'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:315:22: error: function 'band_event_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        int offset = band_event_to_offset(band_idx, curr_event_idx);
+                     ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:315:22: error: use of undeclared identifier 'band_event_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:316:9: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        assert(band_kmer_to_offset(band_idx, curr_kmer_idx) == offset);
+        ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:316:9: error: function 'assert' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:316:9: error: use of undeclared identifier 'assert'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:316:16: error: function 'band_kmer_to_offset' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        assert(band_kmer_to_offset(band_idx, curr_kmer_idx) == offset);
+               ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:316:16: error: use of undeclared identifier 'band_kmer_to_offset'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:318:22: error: function 'TRACE_ARRAY' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+        uchar from = TRACE_ARRAY(band_idx,offset);
+                     ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:318:22: error: use of undeclared identifier 'TRACE_ARRAY'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:329:23: error: function 'MAX' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+            max_gap = MAX(curr_gap, max_gap);
+                      ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:329:23: error: use of undeclared identifier 'MAX'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:362:51: error: expected expression
+                   out_2[outIndex - 1].ref_pos == int(n_kmers - 1);
+                                                  ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:377:5: error: function 'free' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    free(kmer_ranks);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:377:5: error: function 'free' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:377:5: error: use of undeclared identifier 'free'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:384:5: error: function 'free' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    free(bands);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:384:5: error: function 'free' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:384:5: error: use of undeclared identifier 'free'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:385:5: error: function 'free' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    free(trace);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:385:5: error: function 'free' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:385:5: error: use of undeclared identifier 'free'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:386:5: error: function 'free' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+    free(band_lower_left);
+    ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:386:5: error: function 'free' is not supported by the Intel(R) FPGA SDK for OpenCL(TM), and no user definition is provided
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:386:5: error: use of undeclared identifier 'free'
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:390:5: error: void function 'align' should not return a value
+    return outIndex;
+    ^      ~~~~~~~~
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:10:43: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+__kernel void align(__global AlignedPair *out_2, __global char *sequence,
+                                          ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:10:65: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+__kernel void align(__global AlignedPair *out_2, __global char *sequence,
+                                                                ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:11:51: error: unsupported kernel argument type
+                    int sequence_len, event_table events,
+                                                  ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:12:39: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+                    __global model_t *models, scalings_t scaling,
+                                      ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:12:58: error: unsupported kernel argument type
+                    __global model_t *models, scalings_t scaling,
+                                                         ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:394:1: error: expected external declaration
+}
+^
+4 warnings and 180 errors generated.
