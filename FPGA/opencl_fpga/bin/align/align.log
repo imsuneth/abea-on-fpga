@@ -1,0 +1,17 @@
+Compiler Command: aoc -march=emulator -v -board=de5net_a7 device/align.cl -o bin/align.aocx
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:10:44: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+__kernel void align(__global  AlignedPair *out_2, __global char *sequence,
+                                           ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:10:66: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+__kernel void align(__global  AlignedPair *out_2, __global char *sequence,
+                                                                 ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:11:61: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+                    int sequence_len, __global event_table* events,
+                                                            ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:12:39: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+                    __global model_t *models, __global scalings_t* scaling,
+                                      ^
+/media/suneth/Data/FYP/abea-on-fpga-opencl/FPGA/opencl_fpga/device/align.cl:12:68: warning: declaring kernel argument with no 'restrict' may lead to low kernel performance
+                    __global model_t *models, __global scalings_t* scaling,
+                                                                   ^
+5 warnings generated.
