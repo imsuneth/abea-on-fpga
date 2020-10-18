@@ -19,13 +19,11 @@
 #include "f5cmisc.h"
 
 
-
-
 #ifndef CPU_GPU_PROC
 
 void align_cuda(core_t* core, db_t* db) {
     int32_t i;
-    int32_t n_bam_rec = db->n_bam_rec;
+    int32_t n_bam_rec = db->n_bam_rec; //num of reads per batch
     double realtime1;
 
     /**cuda pointers*/
@@ -50,13 +48,13 @@ realtime1 = realtime();
     cudaSetDevice(cuda_device_num);
     CUDA_CHK();
 
-#ifdef CUDA_PRE_MALLOC
-    ptr_t* read_ptr_host = core->cuda->read_ptr_host;
-#else
+// #ifdef CUDA_PRE_MALLOC
+//     ptr_t* read_ptr_host = core->cuda->read_ptr_host;
+// #else
     //get the total size and create the pointers
     ptr_t* read_ptr_host = (ptr_t*)malloc(sizeof(ptr_t) * n_bam_rec);
     MALLOC_CHK(read_ptr_host);
-#endif
+// #endif
     sum_read_len = 0;
 
     //read sequences : needflattening
@@ -75,15 +73,15 @@ realtime1 = realtime();
     //now the events : need flattening
     //num events : need flattening
     //get the total size and create the pointers
-#ifdef CUDA_PRE_MALLOC
-    int32_t* n_events_host = core->cuda->n_events_host;
-    ptr_t* event_ptr_host = core->cuda->event_ptr_host;
-#else
+// #ifdef CUDA_PRE_MALLOC
+//     int32_t* n_events_host = core->cuda->n_events_host;
+//     ptr_t* event_ptr_host = core->cuda->event_ptr_host;
+// #else
     int32_t* n_events_host = (int32_t*)malloc(sizeof(int32_t) * n_bam_rec);
     MALLOC_CHK(n_events_host);
     ptr_t* event_ptr_host = (ptr_t*)malloc(sizeof(ptr_t) * n_bam_rec);
     MALLOC_CHK(event_ptr_host);
-#endif
+// #endif
 
     sum_n_events = 0;
     for (i = 0; i < n_bam_rec; i++) {
@@ -112,14 +110,14 @@ core->align_cuda_preprocess += (realtime() - realtime1);
     /** Start GPU mallocs**/
 realtime1 = realtime();
 
-#ifdef CUDA_PRE_MALLOC
-    read_ptr =core->cuda->read_ptr;
-    read_len=core->cuda->read_len;
-    n_events=core->cuda->n_events;
-    event_ptr=core->cuda->event_ptr;
-    scalings=core->cuda->scalings;
-    model_t* model = core->cuda->model;
-#else
+// #ifdef CUDA_PRE_MALLOC
+//     read_ptr =core->cuda->read_ptr;
+//     read_len=core->cuda->read_len;
+//     n_events=core->cuda->n_events;
+//     event_ptr=core->cuda->event_ptr;
+//     scalings=core->cuda->scalings;
+//     model_t* model = core->cuda->model;
+// #else
 
     if(core->opt.verbosity>1) print_size("read_ptr array",n_bam_rec * sizeof(ptr_t));
     cudaMalloc((void**)&read_ptr, n_bam_rec * sizeof(ptr_t));
@@ -145,7 +143,7 @@ realtime1 = realtime();
     cudaMalloc((void**)&model,
             NUM_KMER * sizeof(model_t));
     CUDA_CHK();
-#endif
+// #endif
 
 
     if(core->opt.verbosity>1) print_size("read array",sum_read_len * sizeof(char));
@@ -164,13 +162,13 @@ realtime1 = realtime();
             2 * sum_n_events *
                 sizeof(AlignedPair)); //todo : need better huristic
     CUDA_CHK();
-#ifdef CUDA_PRE_MALLOC
-    n_event_align_pairs=core->cuda->n_event_align_pairs;
-#else
+// #ifdef CUDA_PRE_MALLOC
+//     n_event_align_pairs=core->cuda->n_event_align_pairs;
+// #else
     if(core->opt.verbosity>1) print_size("n_event_align_pairs",n_bam_rec * sizeof(int32_t));
     cudaMalloc((void**)&n_event_align_pairs, n_bam_rec * sizeof(int32_t));
     CUDA_CHK();
-#endif
+// #endif
     //scratch arrays
     size_t sum_n_bands = sum_n_events + sum_read_len; //todo : can be optimised
     if(core->opt.verbosity>1) print_size("bands",sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
@@ -282,12 +280,12 @@ core->align_post_kernel_time += (realtime() - realtime1);
 
     //fprintf(stderr,"readlen %d,n_events %d\n",db->read_len[i],n_event_align_pairs);
 
-#ifdef CUDA_DEBUG
+// #ifdef CUDA_DEBUG
 
-    cudaDeviceSynchronize();
-    CUDA_CHK();
+//     cudaDeviceSynchronize();
+//     CUDA_CHK();
 
-#endif
+// #endif
 
     /** copyback ans**/
 realtime1 =  realtime();

@@ -159,8 +159,6 @@ __kernel void align_kernel_pre_2d(
     size_t i = get_global_id(1);
     size_t tid = get_global_id(0);
 
-
-
     if (i < n_bam_rec) {
       __global char * sequence = &read[read_ptr[i]];
       int32_t sequence_len = read_len[i];
@@ -337,7 +335,24 @@ __kernel void align_kernel_core_2d_shm(
         band_lower_left_shm[2] = band_lower_left[0];
 
         // __syncthreads(); //CUDA
-        barrier(CLK_GLOBAL_MEM_FENCE); //OpenCL
+        barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
+
+        /*
+            CLK_LOCAL_MEM_FENCE: The barrier function
+will either flush any variables stored in local
+memory or queue a memory fence to ensure
+correct ordering of memory operations to local
+memory.
+
+• CLK_GLOBAL_MEM_FENCE: The barrier function
+will either flush any variables stored in global
+memory or queue a memory fence to ensure
+correct ordering of memory operations to
+global memory. This is needed when work-
+items in a work-group, for example, write to a
+buffer object in global memory and then read
+the updated data.
+        */
 
         // fill in remaining bands
         for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
@@ -382,7 +397,7 @@ __kernel void align_kernel_core_2d_shm(
                 }
             }
             // __syncthreads();
-            barrier(CLK_GLOBAL_MEM_FENCE);
+            barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
 
             // Get the offsets for the first and last event and kmer
             // We restrict the inner loop to only these values
@@ -398,7 +413,7 @@ __kernel void align_kernel_core_2d_shm(
             max_offset = MIN(max_offset, bandwidth);
 
             // __syncthreads();
-            barrier(CLK_GLOBAL_MEM_FENCE);
+            barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
 
 
             if(offset>=min_offset && offset< max_offset) {
@@ -491,7 +506,7 @@ __kernel void align_kernel_core_2d_shm(
             }
 
             // __syncthreads();
-            barrier(CLK_GLOBAL_MEM_FENCE);
+            barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
 
             BAND_ARRAY(band_idx,offset) = BAND_ARRAY_SHM(0,offset);
 
@@ -506,7 +521,7 @@ __kernel void align_kernel_core_2d_shm(
 
 
             // __syncthreads();
-            barrier(CLK_GLOBAL_MEM_FENCE);
+            barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
 
 
         }
