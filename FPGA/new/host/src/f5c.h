@@ -15,9 +15,11 @@
 // #include "nanopolish_read_db.h"
 
 //required for eventalign
-// #include <vector>
-// #include <map>
+#include <vector>
+#include <map>
 
+#include <iostream>
+#include <fstream>
 #define F5C_VERSION "0.4"
 
 /* hard coded numbers*/
@@ -69,42 +71,44 @@
 
 #define ESL_LOG_SUM 1 // enable the fast log sum for HMM
 
-typedef uchar uint8_t;
-typedef uint uint32_t;
+// typedef uchar uint8_t;
+// typedef uint uint32_t;
 typedef int int32_t;
 typedef long int64_t;
-typedef char int8_t;
-typedef ulong uint64_t ;
+// typedef char int8_t;
+
+typedef unsigned long uint64_t ;
+typedef unsigned long size_t;
 
 typedef int64_t ptr_t;
 
 /* data structures */
 
 //user options
-// typedef struct {
-//     int32_t min_mapq;           //minimum mapq
-//     const char* model_file;     //name of the model file
-//     uint32_t flag;              //flags
-//     int32_t batch_size;         //max reads loaded at once: K
-//     int64_t batch_size_bases;   //max bases loaded at once: B
+typedef struct {
+    int32_t min_mapq;           //minimum mapq
+    const char* model_file;     //name of the model file
+    uint32_t flag;              //flags
+    int32_t batch_size;         //max reads loaded at once: K
+    int64_t batch_size_bases;   //max bases loaded at once: B
 
-//     int32_t num_thread; //t
-//     int32_t num_iop; //Used for io performance improvement if > 16 threads
-//     int8_t verbosity;
-//     int32_t debug_break;
-//     int64_t ultra_thresh; //ultra-thresh
+    int32_t num_thread; //t
+    int32_t num_iop; //Used for io performance improvement if > 16 threads
+    int8_t verbosity;
+    int32_t debug_break;
+    int64_t ultra_thresh; //ultra-thresh
 
-//     char *region_str; //the region string in format chr:start-end
-//     int8_t meth_out_version; //output tsv version for call-methylation
+    char *region_str; //the region string in format chr:start-end
+    int8_t meth_out_version; //output tsv version for call-methylation
 
-//     //todo : these are required only for HAVE_CUDA (but need to chnage the meth_main accordingly)
-//     int32_t cuda_block_size; //?
-//     float cuda_max_readlen; //max-lf
-//     float cuda_avg_events_per_kmer; //avg-epk
-//     float cuda_max_avg_events_per_kmer; //max-epk
-//     int32_t cuda_dev_id;
-//     float cuda_mem_frac;
-// } opt_t;
+    //todo : these are required only for HAVE_CUDA (but need to chnage the meth_main accordingly)
+    int32_t cuda_block_size; //?
+    float cuda_max_readlen; //max-lf
+    float cuda_avg_events_per_kmer; //avg-epk
+    float cuda_max_avg_events_per_kmer; //max-epk
+    int32_t cuda_dev_id;
+    float cuda_mem_frac;
+} opt_t;
 
 // a single event : adapted from taken from scrappie
 typedef struct {
@@ -114,14 +118,14 @@ typedef struct {
     float stdv;
     //int32_t pos;   //todo : always -1 can be removed
     //int32_t state; //todo : always -1 can be removed
-} event1_t;
+} event_t;
 
 // event table : adapted from scrappie
 typedef struct {
     size_t n;     //todo : int32_t not enough?
     size_t start; //todo : always 0?
     size_t end;   //todo : always equal to n?
-    event1_t* event;
+    event_t* event;
 } event_table;
 
 
@@ -179,141 +183,163 @@ typedef struct {
 } index_pair_t;
 
 
+//from nanopolish
+typedef struct {
+    // ref data
+    //char* ref_name;
+    char ref_kmer[KMER_SIZE + 1];
+    int32_t ref_position;
+
+    // event data
+    int32_t read_idx;
+    //int32_t strand_idx;
+    int32_t event_idx;
+    bool rc;
+
+    // hmm data
+    char model_kmer[KMER_SIZE + 1];
+    char hmm_state;
+} event_alignment_t;
 
 //from nanopolish
-// typedef struct {
-//     // ref data
-//     //char* ref_name;
-//     char ref_kmer[KMER_SIZE + 1];
-//     int32_t ref_position;
+struct ScoredSite
+{
+    //toto : clean up unused
+    ScoredSite()
+    {
+        ll_unmethylated[0] = 0;
+        ll_unmethylated[1] = 0;
+        ll_methylated[0] = 0;
+        ll_methylated[1] = 0;
+        strands_scored = 0;
+    }
 
-//     // event data
-//     int32_t read_idx;
-//     //int32_t strand_idx;
-//     int32_t event_idx;
-//     bool rc;
+    std::string chromosome;
+    int start_position;
+    int end_position;
+    int n_cpg;
+    std::string sequence;
 
-//     // hmm data
-//     char model_kmer[KMER_SIZE + 1];
-//     char hmm_state;
-// } event_alignment_t;
+    // scores per strand
+    double ll_unmethylated[2];
+    double ll_methylated[2];
+    int strands_scored;
 
-//from nanopolish
-// struct ScoredSite
-// {
-//     //toto : clean up unused
-//     ScoredSite()
-//     {
-//         ll_unmethylated[0] = 0;
-//         ll_unmethylated[1] = 0;
-//         ll_methylated[0] = 0;
-//         ll_methylated[1] = 0;
-//         strands_scored = 0;
-//     }
-
-//     std::string chromosome;
-//     int start_position;
-//     int end_position;
-//     int n_cpg;
-//     std::string sequence;
-
-//     // scores per strand
-//     double ll_unmethylated[2];
-//     double ll_methylated[2];
-//     int strands_scored;
-
-//     //
-//     static bool sort_by_position(const ScoredSite& a, const ScoredSite& b) { return a.start_position < b.start_position; }
-// };
+    //
+    static bool sort_by_position(const ScoredSite& a, const ScoredSite& b) { return a.start_position < b.start_position; }
+};
 
 //eventalign related
 // Summarize the event alignment for a read strand
-// typedef struct
-// {
-//     // //cleanup this part
-//     // EventalignSummary() {
-//     //     num_events = 0;
-//     //     num_steps = 0;
-//     //     num_stays = 0;
-//     //     num_skips = 0;
-//     //     sum_z_score = 0;
-//     //     sum_duration = 0;
-//     //     alignment_edit_distance = 0;
-//     //     reference_span = 0;
-//     // }
+typedef struct
+{
+    // //cleanup this part
+    // EventalignSummary() {
+    //     num_events = 0;
+    //     num_steps = 0;
+    //     num_stays = 0;
+    //     num_skips = 0;
+    //     sum_z_score = 0;
+    //     sum_duration = 0;
+    //     alignment_edit_distance = 0;
+    //     reference_span = 0;
+    // }
 
-//     int num_events;
-//     int num_steps;
-//     int num_stays;
-//     int num_skips;
+    int num_events;
+    int num_steps;
+    int num_stays;
+    int num_skips;
 
-//     double sum_duration;
-//     double sum_z_score;
-//     int alignment_edit_distance;
-//     int reference_span;
-// }EventalignSummary;
+    double sum_duration;
+    double sum_z_score;
+    int alignment_edit_distance;
+    int reference_span;
+}EventalignSummary;
 
+typedef struct {
+    float* rawptr;   // raw signal (float is not the best datatype type though)
+    // hsize_t nsample; // number of samples
 
+    //	Information for scaling raw data from ADC values to pA (are these duplicates?)
+    float digitisation;
+    float offset;
+    float range;
+    float sample_rate;
+
+    // computed scaling paramtersd
+    float scale;
+    float shift;
+    float drift;
+    float var;
+    float scale_sd;
+    float var_sd;
+
+    // derived parameters that are cached for efficiency. do we need these?
+    float log_var;
+    float scaled_var;
+    float log_scaled_var;
+
+} fast5_t;
 
 // a data batch (dynamic data based on the reads)
-// typedef struct {
-//     // region string
-//     //char* region;
+typedef struct {
+    // region string
+    //char* region;
 
-//     // bam records
-//     bam1_t** bam_rec;
-//     int32_t capacity_bam_rec; // will these overflow?
-//     int32_t n_bam_rec;
+    // bam records
+    // bam1_t** bam_rec;
+    int32_t capacity_bam_rec; // will these overflow?
+    int32_t n_bam_rec;
 
-//     // fasta cache //can optimise later by caching a common string for all
-//     // records in the batch
-//     char** fasta_cache;
+    // fasta cache //can optimise later by caching a common string for all
+    // records in the batch
+    char** fasta_cache;
 
-//     //read sequence //todo : optimise by grabbing it from bam seq. is it possible due to clipping?
-//     char** read;
-//     int32_t* read_len;
-//     int64_t* read_idx; //the index of the read entry in the BAM file
+    //read sequence //todo : optimise by grabbing it from bam seq. is it possible due to clipping?
+    char** read;
+    int32_t* read_len;
+    int64_t* read_idx; //the index of the read entry in the BAM file
 
-//     // fast5 file //should flatten this to reduce mallocs
-//     fast5_t** f5;
+    // fast5 file //should flatten this to reduce mallocs
+    fast5_t** f5;
 
-//     //event table
-//     event_table* et;
+    //event table
+    event_table* et;
 
-//     //scaling
-//     scalings_t* scalings;
+    //scaling
+    scalings_t* scalings;
 
-//     //aligned pairs
-//     AlignedPair** event_align_pairs;
-//     int32_t* n_event_align_pairs;
+    //aligned pairs
+    AlignedPair** event_align_pairs;
+    int32_t* n_event_align_pairs;
 
-//     //event alignments
-//     event_alignment_t** event_alignment;
-//     int32_t* n_event_alignment;
-//     double* events_per_base; //todo : do we need double?
+    //event alignments
+    event_alignment_t** event_alignment;
+    int32_t* n_event_alignment;
+    double* events_per_base; //todo : do we need double?
 
-//     index_pair_t** base_to_event_map;
+    index_pair_t** base_to_event_map;
 
-//     int32_t* read_stat_flag;
+    int32_t* read_stat_flag;
 
-//     //extreme ugly hack till converted to C
-//     // An output map from reference positions to scored CpG sites
-//     std::map<int, ScoredSite> **site_score_map;
+    //extreme ugly hack till converted to C
+    // An output map from reference positions to scored CpG sites
+    std::map<int, ScoredSite> **site_score_map;
 
-//     //stats //set by the load_db
-//     int64_t sum_bases;
-//     int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-//     int64_t bad_fast5_file; //empty fast5 path returned by readdb, could not open fast5
-//     int64_t ultra_long_skipped; //ultra long reads that are skipped
+    //stats //set by the load_db
+    int64_t sum_bases;
+    int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
+    int64_t bad_fast5_file; //empty fast5 path returned by readdb, could not open fast5
+    int64_t ultra_long_skipped; //ultra long reads that are skipped
 
-//     //eventalign related
-//     EventalignSummary *eventalign_summary;
-//     //another extremely ugly hack till converted to C
-//     //TODO : convert this to a C array and get rid of include <vector>
-//     std::vector<event_alignment_t> **event_alignment_result;
+    //eventalign related
+    EventalignSummary *eventalign_summary;
+    //another extremely ugly hack till converted to C
+    //TODO : convert this to a C array and get rid of include <vector>
+    std::vector<event_alignment_t> **event_alignment_result;
 
 
-// } db_t;
+} db_t;
 
 //cuda core data structure : allocated array pointers
 // #ifdef HAVE_CUDA
@@ -351,103 +377,103 @@ typedef struct {
 // #endif
 
 //core data structure (mostly static data throughout the program lifetime)
-// typedef struct {
-//     // bam file related
-//     htsFile* m_bam_fh;
-//     hts_idx_t* m_bam_idx;
-//     bam_hdr_t* m_hdr;
-//     hts_itr_t* itr;
+typedef struct {
+    // bam file related
+    // htsFile* m_bam_fh;
+    // hts_idx_t* m_bam_idx;
+    // bam_hdr_t* m_hdr;
+    // hts_itr_t* itr;
 
-//     //clipping coordinates
-//     int32_t clip_start;
-//     int32_t clip_end;
+    //clipping coordinates
+    int32_t clip_start;
+    int32_t clip_end;
 
-//     //bam file for writing the skipped ultra long reads to be later processed
-//     htsFile* ultra_long_tmp;
+    //bam file for writing the skipped ultra long reads to be later processed
+    //htsFile* ultra_long_tmp;
 
-//     //temporary file for dumping
-//     FILE *raw_dump;
+    //temporary file for dumping
+    FILE *raw_dump;
 
-//     // fa related
-//     faidx_t* fai;
+    // fa related
+    // faidx_t* fai;
 
-//     // readbb
-//     // ReadDB* readbb;
+    // readbb
+    // ReadDB* readbb;
 
-//     // models
-//     model_t* model; //dna model
-//     model_t* cpgmodel;
+    // models
+    model_t* model; //dna model
+    model_t* cpgmodel;
 
-//     // options
-//     opt_t opt;
+    // options
+    opt_t opt;
 
-//     //realtime0
-//     double realtime0;
+    //realtime0
+    double realtime0;
 
-//     double load_db_time;
-//     double process_db_time;
+    double load_db_time;
+    double process_db_time;
 
-//     //loading time breakdown
-//     double db_bam_time;
-//     double db_fasta_time;
-//     double db_fast5_time;
-//     double db_fast5_open_time;
-//     double db_fast5_read_time;
+    //loading time breakdown
+    double db_bam_time;
+    double db_fasta_time;
+    double db_fast5_time;
+    double db_fast5_open_time;
+    double db_fast5_read_time;
 
-//     //processing time break down
-//     double event_time;
-//     double align_time;
-//     double est_scale_time;
-//     double meth_time;
+    //processing time break down
+    double event_time;
+    double align_time;
+    double est_scale_time;
+    double meth_time;
 
 
-// #ifdef HAVE_CUDA
+#ifdef HAVE_CUDA
 
-//     //cuda arrays
-//     cuda_data_t* cuda;
+    //cuda arrays
+    cuda_data_t* cuda;
 
-//     double align_kernel_time;
-//     double align_pre_kernel_time;
-//     double align_core_kernel_time;
-//     double align_post_kernel_time;
-//     double extra_load_cpu;
-//     double align_cuda_malloc;
-//     double align_cuda_memcpy;
-//     double align_cuda_postprocess;
-//     double align_cuda_preprocess;
-//     double align_cuda_total_kernel;
+    double align_kernel_time;
+    double align_pre_kernel_time;
+    double align_core_kernel_time;
+    double align_post_kernel_time;
+    double extra_load_cpu;
+    double align_cuda_malloc;
+    double align_cuda_memcpy;
+    double align_cuda_postprocess;
+    double align_cuda_preprocess;
+    double align_cuda_total_kernel;
 
-//     //perf stats (can reduce to 16 bit integers)
-//     int32_t previous_mem;
-//     int32_t previous_count_mem;
-//     int32_t previous_load;
-//     int32_t previous_count_load;
+    //perf stats (can reduce to 16 bit integers)
+    int32_t previous_mem;
+    int32_t previous_count_mem;
+    int32_t previous_load;
+    int32_t previous_count_load;
 
-// #endif
+#endif
 
-//     //stats //set by output_db
-//     int64_t sum_bases;
-//     int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-//     int64_t bad_fast5_file; //empty fast5 path returned by readdb, could not open fast5
-//     int64_t ultra_long_skipped; //ultra long reads that are skipped
-//     int64_t qc_fail_reads;
-//     int64_t failed_calibration_reads;
-//     int64_t failed_alignment_reads;
+    //stats //set by output_db
+    int64_t sum_bases;
+    int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
+    int64_t bad_fast5_file; //empty fast5 path returned by readdb, could not open fast5
+    int64_t ultra_long_skipped; //ultra long reads that are skipped
+    int64_t qc_fail_reads;
+    int64_t failed_calibration_reads;
+    int64_t failed_alignment_reads;
 
-//     //eventalign related
-//     int8_t mode;
-//     FILE *event_summary_fp;
-//     htsFile *sam_output;
-//     int64_t read_index; //used for printing the read index from the beginning
+    //eventalign related
+    int8_t mode;
+    FILE *event_summary_fp;
+    // htsFile *sam_output;
+    int64_t read_index; //used for printing the read index from the beginning
 
-//     //IO proc related
-//     pid_t *pids;
-//     int *pipefd_p2c;
-//     int *pipefd_c2p;
-//     FILE **pipefp_p2c;
-//     FILE **pipefp_c2p;
+    //IO proc related
+    pid_t *pids;
+    int *pipefd_p2c;
+    int *pipefd_c2p;
+    FILE **pipefp_p2c;
+    FILE **pipefp_c2p;
 
-// } core_t;
+} core_t;
 
 //argument wrapper for the multithreading framework for processing
 // typedef struct {
@@ -477,10 +503,10 @@ typedef struct {
 // } pthread_arg2_t;
 
 // //return status by the load_db - used for termination when all the data is processed
-// typedef struct {
-//     int32_t num_reads;
-//     int64_t num_bases;
-// } ret_status_t;
+typedef struct {
+    int32_t num_reads;
+    int64_t num_bases;
+} ret_status_t;
 
 // typedef struct {
 //     int32_t n_event_align_pair;
@@ -519,6 +545,9 @@ typedef struct {
 // #endif
 
 /* Function prototypes for other non-major functions are in f5cmisc.h (and f5cmisc.cuh for CUDA)*/
+
+
+
 
 #endif
 
