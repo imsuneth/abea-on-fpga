@@ -1,0 +1,10 @@
+m255
+K4
+z2
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+dD:/FYP/abea-on-fpga-opencl/FPGA/HardIP/example_design/gen1_x8_example_design/altera_pcie_sv_hip_ast/pcie_de_gen1_x8_ast128/testbench/mentor

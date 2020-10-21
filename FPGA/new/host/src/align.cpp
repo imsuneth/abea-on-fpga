@@ -16,7 +16,7 @@ using namespace aocl_utils;
 
 #include "error.h"
 // #include "f5c.h"
-// #include "f5cmisc.cuh"
+#include "f5cmisc_cu.h"
 #include "f5cmisc.h"
 
 
@@ -36,8 +36,11 @@ static cl_platform_id platform = NULL;
 static cl_device_id device = NULL;
 static cl_context context = NULL;
 static cl_command_queue queue = NULL;
-static cl_kernel kernel = NULL;
+static cl_kernel align_kernel_pre_2d = NULL;
+static cl_kernel align_kernel_core_2d_shm = NULL;
+static cl_kernel align_kernel_post = NULL;
 static cl_program program = NULL;
+cl_int status;
 
 // Function prototypes
 bool init();
@@ -52,7 +55,6 @@ static void align_cuda(core_t *core, db_t *db);
 
 // Entry point.
 int main() {
-  cl_int status;
 
   const char * align_args_dump_dir = "align_args_dump";
 
@@ -158,7 +160,6 @@ void align_cuda(core_t *core, db_t *db) {
 cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 */
 
-
     if(core->opt.verbosity>1) print_size("read_ptr array",n_bam_rec * sizeof(ptr_t));
     cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(ptr_t), host_read_ptr, NULL);
     //CUDA_CHK();
@@ -220,14 +221,12 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     // CUDA_CHK();
     cl_mem trace =clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(uint8_t), host_trace, NULL);
 
-
-
     // cudaMemset(trace,0,sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH); //initialise the trace array to 0
     
     size_t trace_size = sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH;
     cl_mem trace_buffer= clCreateBuffer(context, CL_MEM_READ_WRITE, trace_size, trace, NULL);
     uint8_t zero = 0;
-    clEnqueueFillBuffer(queue, trace_buffer, &zero, trace_size, 0, trace_size, NULL, NULL, NULL);
+    clEnqueueFillBuffer(queue, trace_buffer, &zero, trace_size, 0, trace_size, 0, NULL, NULL);
 
 
 
@@ -236,9 +235,77 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     // CUDA_CHK();
     cl_mem band_lower_left=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), host_band_lower_left, NULL);
 
+    //core->align_cuda_malloc += (realtime() - realtime1);
+/* cuda mem copys*/
+    //realtime1 =realtime();  
+    //cudaMemcpy(read_ptr, read_ptr_host, n_bam_rec * sizeof(ptr_t),cudaMemcpyHostToDevice);
+    clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
+    // CUDA_CHK();
+
+    //cudaMemcpy(read, read_host, sum_read_len * sizeof(char), cudaMemcpyHostToDevice);
+    clEnqueueWriteBuffer(queue, read, CL_TRUE, 0,sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
+    // CUDA_CHK();
+
+    //read length : already linear hence direct copy
+    // cudaMemcpy(read_len, db->read_len, n_bam_rec * sizeof(int32_t),cudaMemcpyHostToDevice);
+    clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t),db->read_len, 0, NULL, NULL);
+    // CUDA_CHK();
+
+    // cudaMemcpy(n_events, n_events_host, n_bam_rec * sizeof(int32_t),cudaMemcpyHostToDevice);
+    clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, NULL);
+    // CUDA_CHK();
+
+    // cudaMemcpy(event_ptr, event_ptr_host, n_bam_rec * sizeof(ptr_t),cudaMemcpyHostToDevice);
+    clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, NULL);
+    // CUDA_CHK();
+
+    // cudaMemcpy(event_table, event_table_host, sizeof(event_t) * sum_n_events,cudaMemcpyHostToDevice);
+    clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, NULL);
+    // CUDA_CHK();
 
 
+#ifndef CUDA_PRE_MALLOC
+//model : already linear //move to cuda_init
+    // cudaMemcpy(model, core->model, NUM_KMER * sizeof(model_t), cudaMemcpyHostToDevice);
+    clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, NULL);
+    // CUDA_CHK();
+#endif
+    //can be interleaved
+    // cudaMemcpy(scalings, db->scalings, sizeof(scalings_t) * n_bam_rec, cudaMemcpyHostToDevice);
+    clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, NULL);
+    // CUDA_CHK();
+    
+    //realtime1 = realtime();
 
+
+    /* blockpre == threads per block == local
+      gridpre == num blocks
+      global = gridpre .* blockpre
+    */
+
+    /*pre kernel*/
+    assert(BLOCK_LEN_BANDWIDTH>=ALN_BANDWIDTH);
+    // dim3 gridpre(1,(db->n_bam_rec + BLOCK_LEN_READS - 1) / BLOCK_LEN_READS);
+    const size_t gridpre[2] = {1, (size_t)(db->n_bam_rec + BLOCK_LEN_READS - 1) / BLOCK_LEN_READS};
+    // dim3 blockpre(BLOCK_LEN_BANDWIDTH,BLOCK_LEN_READS);
+    const size_t blockpre[2] = {BLOCK_LEN_BANDWIDTH, BLOCK_LEN_READS};
+	// if(core->opt.verbosity>1) fprintf(stderr,"grid %d,%d, block %d,%d\n",gridpre.x,gridpre.y, blockpre.x,blockpre.y);
+  if(core->opt.verbosity>1) fprintf(stderr,"grid %zu,%zu, block %zu,%zu\n",gridpre[0],gridpre[1], blockpre[0],blockpre[1]);
+
+  //   align_kernel_pre_2d<<<gridpre, blockpre>>>( read,
+  //       read_len, read_ptr, n_events,
+  //       event_ptr, model, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left);
+
+  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, 0, gridpre, blockpre, 0, NULL, NULL);
+
+  //   cudaDeviceSynchronize();CUDA_CHK();
+  status = clFinish(queue);
+  checkError(status, "Failed to finish");
+  printf("\nKernel execution is complete.\n");
+
+  //   if(core->opt.verbosity>1) fprintf(stderr, "[%s::%.3f*%.2f] align-pre kernel done\n", __func__,realtime() - realtime1, cputime() / (realtime() - realtime1));
+  //   core->align_kernel_time += (realtime() - realtime1);
+  //   core->align_pre_kernel_time += (realtime() - realtime1);
 
 }
 
@@ -303,17 +370,32 @@ bool init() {
 
   // Create the kernel - name passed in here must match kernel name in the
   // original CL file, that was compiled into an AOCX file using the AOC tool
-  const char *kernel_name = "align";  // Kernel name, as defined in the CL file
-  kernel = clCreateKernel(program, kernel_name, &status);
+  const char *kernel1_name = "align_kernel_pre_2d";  // Kernel name, as defined in the CL file
+  const char *kernel2_name = "align_kernel_core_2d_shm";  // Kernel name, as defined in the CL file
+  const char *kernel3_name = "align_kernel_post";  // Kernel name, as defined in the CL file
+  align_kernel_pre_2d = clCreateKernel(program, kernel1_name, &status);
   checkError(status, "Failed to create kernel");
+  align_kernel_core_2d_shm = clCreateKernel(program, kernel2_name, &status);
+  checkError(status, "Failed to create kernel");
+  align_kernel_post = clCreateKernel(program, kernel3_name, &status);
+  checkError(status, "Failed to create kernel");
+
+  
 
   return true;
 }
 
 // Free the resources allocated during initialization
 void cleanup() {
-  if(kernel) {
-    clReleaseKernel(kernel);  
+
+  if(align_kernel_pre_2d) {
+    clReleaseKernel(align_kernel_pre_2d);  
+  }
+  if(align_kernel_core_2d_shm) {
+    clReleaseKernel(align_kernel_core_2d_shm);  
+  }
+  if(align_kernel_post) {
+    clReleaseKernel(align_kernel_post);  
   }
   if(program) {
     clReleaseProgram(program);

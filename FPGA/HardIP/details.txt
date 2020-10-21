@@ -1,0 +1,4 @@
+Device: Stratix V GX PCIe
+Name: 5SGXEA7N2F45C2
+
+Qsys Design Flow
