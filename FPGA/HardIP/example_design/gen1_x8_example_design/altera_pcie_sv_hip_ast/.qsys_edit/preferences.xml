@@ -3,14 +3,11 @@
  <debug showDebugMenu="0" />
  <systemtable filter="All Interfaces">
   <columns>
-   <connections preferredWidth="30" />
+   <connections preferredWidth="351" />
    <irq preferredWidth="34" />
-   <export preferredWidth="89" />
-   <description preferredWidth="284" />
   </columns>
  </systemtable>
- <library expandedCategories="Project,Library" />
- <window width="1382" height="754" x="-8" y="-8" />
- <generation path="_PROJECT_NAME_" simulation="VERILOG" />
- <hdlexample language="VERILOG" />
+ <library expandedCategories="Library,Project" />
+ <window width="1100" height="738" x="61" y="97" />
+ <generation path="_PROJECT_NAME_" />
 </preferences>

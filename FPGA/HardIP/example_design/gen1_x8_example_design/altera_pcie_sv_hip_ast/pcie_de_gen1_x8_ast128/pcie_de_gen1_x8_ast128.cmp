@@ -1,8 +1,23 @@
 	component pcie_de_gen1_x8_ast128 is
 		port (
-			clk_clk                   : in  std_logic                     := 'X';             -- clk
 			hip_ctrl_test_in          : in  std_logic_vector(31 downto 0) := (others => 'X'); -- test_in
 			hip_ctrl_simu_mode_pipe   : in  std_logic                     := 'X';             -- simu_mode_pipe
+			hip_serial_rx_in0         : in  std_logic                     := 'X';             -- rx_in0
+			hip_serial_rx_in1         : in  std_logic                     := 'X';             -- rx_in1
+			hip_serial_rx_in2         : in  std_logic                     := 'X';             -- rx_in2
+			hip_serial_rx_in3         : in  std_logic                     := 'X';             -- rx_in3
+			hip_serial_rx_in4         : in  std_logic                     := 'X';             -- rx_in4
+			hip_serial_rx_in5         : in  std_logic                     := 'X';             -- rx_in5
+			hip_serial_rx_in6         : in  std_logic                     := 'X';             -- rx_in6
+			hip_serial_rx_in7         : in  std_logic                     := 'X';             -- rx_in7
+			hip_serial_tx_out0        : out std_logic;                                        -- tx_out0
+			hip_serial_tx_out1        : out std_logic;                                        -- tx_out1
+			hip_serial_tx_out2        : out std_logic;                                        -- tx_out2
+			hip_serial_tx_out3        : out std_logic;                                        -- tx_out3
+			hip_serial_tx_out4        : out std_logic;                                        -- tx_out4
+			hip_serial_tx_out5        : out std_logic;                                        -- tx_out5
+			hip_serial_tx_out6        : out std_logic;                                        -- tx_out6
+			hip_serial_tx_out7        : out std_logic;                                        -- tx_out7
 			hip_pipe_sim_pipe_pclk_in : in  std_logic                     := 'X';             -- sim_pipe_pclk_in
 			hip_pipe_sim_pipe_rate    : out std_logic_vector(1 downto 0);                     -- sim_pipe_rate
 			hip_pipe_sim_ltssmstate   : out std_logic_vector(4 downto 0);                     -- sim_ltssmstate
@@ -142,25 +157,10 @@
 			hip_pipe_rxvalid5         : in  std_logic                     := 'X';             -- rxvalid5
 			hip_pipe_rxvalid6         : in  std_logic                     := 'X';             -- rxvalid6
 			hip_pipe_rxvalid7         : in  std_logic                     := 'X';             -- rxvalid7
-			hip_serial_rx_in0         : in  std_logic                     := 'X';             -- rx_in0
-			hip_serial_rx_in1         : in  std_logic                     := 'X';             -- rx_in1
-			hip_serial_rx_in2         : in  std_logic                     := 'X';             -- rx_in2
-			hip_serial_rx_in3         : in  std_logic                     := 'X';             -- rx_in3
-			hip_serial_rx_in4         : in  std_logic                     := 'X';             -- rx_in4
-			hip_serial_rx_in5         : in  std_logic                     := 'X';             -- rx_in5
-			hip_serial_rx_in6         : in  std_logic                     := 'X';             -- rx_in6
-			hip_serial_rx_in7         : in  std_logic                     := 'X';             -- rx_in7
-			hip_serial_tx_out0        : out std_logic;                                        -- tx_out0
-			hip_serial_tx_out1        : out std_logic;                                        -- tx_out1
-			hip_serial_tx_out2        : out std_logic;                                        -- tx_out2
-			hip_serial_tx_out3        : out std_logic;                                        -- tx_out3
-			hip_serial_tx_out4        : out std_logic;                                        -- tx_out4
-			hip_serial_tx_out5        : out std_logic;                                        -- tx_out5
-			hip_serial_tx_out6        : out std_logic;                                        -- tx_out6
-			hip_serial_tx_out7        : out std_logic;                                        -- tx_out7
+			refclk_clk                : in  std_logic                     := 'X';             -- clk
 			pcie_rstn_npor            : in  std_logic                     := 'X';             -- npor
 			pcie_rstn_pin_perst       : in  std_logic                     := 'X';             -- pin_perst
-			refclk_clk                : in  std_logic                     := 'X';             -- clk
+			clk_clk                   : in  std_logic                     := 'X';             -- clk
 			reset_reset_n             : in  std_logic                     := 'X'              -- reset_n
 		);
 	end component pcie_de_gen1_x8_ast128;
