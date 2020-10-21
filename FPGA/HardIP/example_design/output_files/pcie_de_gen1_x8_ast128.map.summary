@@ -1,0 +1,23 @@
+Analysis & Synthesis Status : Successful - Wed Oct 21 20:20:56 2020
+Quartus Prime Version : 19.1.0 Build 670 09/22/2019 SJ Standard Edition
+Revision Name : pcie_de_gen1_x8_ast128
+Top-level Entity Name : pcie_de_gen1_x8_ast128
+Family : Stratix V
+Logic utilization (in ALMs) : N/A
+Total registers : 8730
+Total pins : 366
+Total virtual pins : 0
+Total block memory bits : 645,926
+Total DSP Blocks : 0
+Total HSSI STD RX PCSs : 9
+Total HSSI 10G RX PCSs : 0
+Total HSSI GEN3 RX PCSs : 0
+Total HSSI PMA RX Deserializers : 8
+Total HSSI STD TX PCSs : 9
+Total HSSI 10G TX PCSs : 0
+Total HSSI GEN3 TX PCSs : 0
+Total HSSI PMA TX Serializers : 9
+Total HSSI PIPE GEN1_2s : 9
+Total HSSI GEN3s : 9
+Total PLLs : 9
+Total DLLs : 0
