@@ -138,6 +138,11 @@ EventKmerPair move_right(EventKmerPair curr_band){
 
 /************** Kernels with 2D thread models **************/
 
+//******************************************************************************************************
+/* pre kernel*/
+//******************************************************************************************************
+
+
 __kernel void align_kernel_pre_2d(
     __global char* restrict read,
     __global int32_t* restrict read_len, 
@@ -151,15 +156,13 @@ __kernel void align_kernel_pre_2d(
     __global uint8_t * restrict trace1, 
     __global EventKmerPair* restrict band_lower_left1
   ){
-
+    //   printf("Kernel called\n");
     // CUDA
     // int i = blockDim.y * blockIdx.y + threadIdx.y;
     // int tid=blockIdx.x*blockDim.x+threadIdx.x;
 
     size_t i = get_global_id(1);
     size_t tid = get_global_id(0);
-
-
 
     if (i < n_bam_rec) {
       __global char * sequence = &read[read_ptr[i]];
@@ -261,6 +264,11 @@ __kernel void align_kernel_pre_2d(
 #define BAND_ARRAY_SHM(r, c) ( bands_shm[(r)][(c)] )
 
 
+//******************************************************************************************************
+/*core kernel*/
+//******************************************************************************************************
+   
+
 
 __kernel void align_kernel_core_2d_shm(
     __global int32_t* restrict read_len,
@@ -276,6 +284,7 @@ __kernel void align_kernel_core_2d_shm(
     __global EventKmerPair* restrict band_lower_lefts
 ){
 
+    // printf("IN CORE KERNEL!\n");
     // CUDA
     // int i = blockDim.y * blockIdx.y + threadIdx.y;
     // int offset=blockIdx.x*blockDim.x+threadIdx.x;
@@ -288,6 +297,8 @@ __kernel void align_kernel_core_2d_shm(
     __local EventKmerPair band_lower_left_shm[3];
 
     if (i < n_bam_rec && offset<ALN_BANDWIDTH) {
+
+        // printf("IN CORE KERNEL - IN IF CONDITION!\n");
 
         int32_t sequence_len = read_len[i];
         __global event1_t* events = &event_table[event_ptr[i]];
@@ -335,13 +346,40 @@ __kernel void align_kernel_core_2d_shm(
         band_lower_left_shm[0] = band_lower_left[2];
         band_lower_left_shm[1] = band_lower_left[1];
         band_lower_left_shm[2] = band_lower_left[0];
-
+    
+    
         // __syncthreads(); //CUDA
-        barrier(CLK_GLOBAL_MEM_FENCE); //OpenCL
+        // printf("IN CORE KERNEL - IN LOOP - before barrier 0!\n");
+        barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
+        // printf("IN CORE KERNEL - IN LOOP - after barrier 0!\n");
 
+
+       
+        /*
+            CLK_LOCAL_MEM_FENCE: The barrier function
+            will either flush any variables stored in local
+            memory or queue a memory fence to ensure
+            correct ordering of memory operations to local
+            memory.
+
+            • CLK_GLOBAL_MEM_FENCE: The barrier function
+            will either flush any variables stored in global
+            memory or queue a memory fence to ensure
+            correct ordering of memory operations to
+            global memory. This is needed when work-
+            items in a work-group, for example, write to a
+            buffer object in global memory and then read
+            the updated data.
+        */
+        // printf("IN CORE KERNEL - Before loop!\n");
         // fill in remaining bands
+
+
         for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
 
+            // priclntf("Core Kernel - i: %lu, band_idx: %d\n", i, band_idx);
+
+            // printf("IN CORE KERNEL - In loop!\n");
             if(offset==0){
                 // Determine placement of this band according to Suzuki's adaptive algorithm
                 // When both ll and ur are out-of-band (ob) we alternate movements
@@ -382,7 +420,9 @@ __kernel void align_kernel_core_2d_shm(
                 }
             }
             // __syncthreads();
-            barrier(CLK_GLOBAL_MEM_FENCE);
+            // printf("IN CORE KERNEL - IN LOOP - before barrier 1!\n");
+            barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
+            // printf("IN CORE KERNEL - IN LOOP - after barrier 1!\n");
 
             // Get the offsets for the first and last event and kmer
             // We restrict the inner loop to only these values
@@ -398,8 +438,9 @@ __kernel void align_kernel_core_2d_shm(
             max_offset = MIN(max_offset, bandwidth);
 
             // __syncthreads();
-            barrier(CLK_GLOBAL_MEM_FENCE);
-
+            // printf("IN CORE KERNEL - IN LOOP - before barrier 2!\n");
+            barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
+            // printf("IN CORE KERNEL - IN LOOP - after barrier 2!\n");
 
             if(offset>=min_offset && offset< max_offset) {
 
@@ -491,7 +532,9 @@ __kernel void align_kernel_core_2d_shm(
             }
 
             // __syncthreads();
-            barrier(CLK_GLOBAL_MEM_FENCE);
+            // printf("IN CORE KERNEL - IN LOOP - before barrier 3!\n");
+            barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
+            // printf("IN CORE KERNEL - IN LOOP - after barrier 3!\n");
 
             BAND_ARRAY(band_idx,offset) = BAND_ARRAY_SHM(0,offset);
 
@@ -506,13 +549,44 @@ __kernel void align_kernel_core_2d_shm(
 
 
             // __syncthreads();
-            barrier(CLK_GLOBAL_MEM_FENCE);
+            // printf("IN CORE KERNEL - IN LOOP - before barrier 4!\n");
+            barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
+            // printf("IN CORE KERNEL - IN LOOP - after barrier 4!\n");
+            
 
 
         }
+        // printf("IN CORE KERNEL - After loop!\n");
     }
 
+    else{
+
+        int32_t sequence_len = read_len[i];
+        int32_t n_event = n_events1[i];
+        
+        int32_t n_events = n_event;
+        int32_t n_kmers = sequence_len - KMER_SIZE + 1;
+ 
+        // dp matrix
+        int32_t n_rows = n_events + 1;
+        int32_t n_cols = n_kmers + 1;
+        int32_t n_bands = n_rows + n_cols;
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
+            barrier(CLK_LOCAL_MEM_FENCE);
+            barrier(CLK_LOCAL_MEM_FENCE);
+            barrier(CLK_LOCAL_MEM_FENCE);
+            barrier(CLK_LOCAL_MEM_FENCE);
+        }
+    }
 }
+
+
+//******************************************************************************************************
+/* post kernel*/
+//******************************************************************************************************
+
 
 //align post kernel
 __kernel void align_kernel_post(
@@ -523,14 +597,14 @@ __kernel void align_kernel_post(
     __global event1_t* restrict event_table, //There is a built-in event_t. Therefore, renamed as event1_t
     __global int32_t* restrict n_events,
     __global ptr_t* restrict event_ptr,
-    __global scalings_t* restrict scalings, 
     int32_t n_bam_rec,
+    __global scalings_t* restrict scalings, 
+
     __global model_t* restrict model_kmer_caches,
     __global float * restrict bands1,
     __global uint8_t * restrict trace1, 
     __global EventKmerPair* restrict band_lower_left1
 ){
-
     // CUDA
     // int i = blockDim.y * blockIdx.y + threadIdx.y;
     // int offset=blockIdx.x*blockDim.x+threadIdx.x;
@@ -788,7 +862,9 @@ __kernel void align_kernel_post(
         //outSize=outIndex;
         //if(outIndex>500000)fprintf(stderr, "Max outSize %d\n", outIndex);
         n_event_align_pairs[i] = outIndex;
+        
 
     }
 
+    
 }
