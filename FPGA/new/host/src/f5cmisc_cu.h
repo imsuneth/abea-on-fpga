@@ -44,6 +44,11 @@ and then the program will be aborted*/
 // #define CUDA_CHK()                                                             \
 //     { gpu_assert(__FILE__, __LINE__); }
 
+#define clErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+
+
+
+
 
 // __global__ void
 // //__launch_bounds__(MY_KERNEL_MAX_THREADS, MY_KERNEL_MIN_BLOCKS)

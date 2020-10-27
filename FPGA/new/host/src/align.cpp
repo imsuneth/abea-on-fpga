@@ -10,7 +10,7 @@
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
 
-// #include "dump_functions.h"
+#include "dump_functions.h"
 
 using namespace aocl_utils;
 
@@ -18,6 +18,8 @@ using namespace aocl_utils;
 // #include "f5c.h"
 #include "f5cmisc_cu.h"
 #include "f5cmisc.h"
+
+
 
 
 #ifndef CPU_GPU_PROC
@@ -53,18 +55,100 @@ static void display_device_info( cl_device_id device );
 
 static void align_cuda(core_t *core, db_t *db);
 
+
 // Entry point.
 int main() {
 
-  const char * align_args_dump_dir = "align_args_dump";
+  printf("Host started\n");
 
   if(!init()) {
+    printf("init() unsuccessful\n");
     return -1;
   }
 
-  core_t * core;
-  db_t * db;
-  align_cuda(core, db);
+  printf("init() successful\n");
+
+  // Load dump files
+  const char * align_args_dump_dir = "align_args_dump";
+  
+
+  db_t* db;
+  db = (db_t*)malloc(sizeof(db_t));
+
+  db->n_bam_rec = 1;
+  
+  db->n_event_align_pairs = (int32_t*)malloc(sizeof(int32_t)*db->n_bam_rec);
+  db->event_align_pairs = (AlignedPair**)malloc(sizeof(AlignedPair*)*db->n_bam_rec);
+  db->read_len = (int32_t*)malloc(sizeof(int32_t)*db->n_bam_rec);
+  db->read = (char**)malloc(sizeof(char*)*db->n_bam_rec);
+  db->et = (event_table*)malloc(sizeof(event_table)*db->n_bam_rec);
+  db->scalings = (scalings_t*)malloc(sizeof(scalings_t)*db->n_bam_rec);
+  db->f5 = (fast5_t**)malloc(sizeof(fast5_t*)*db->n_bam_rec);
+
+  
+
+  core_t* core;
+  core = (core_t*)malloc(sizeof(core_t));
+  core->model = (model_t*)malloc(sizeof(model_t)*db->n_bam_rec);
+
+  
+
+  printf("db, core initialized\n");
+
+  for (int i=0; i<db->n_bam_rec; i++){
+
+        load_align_arguments(core, db, i, align_args_dump_dir);
+
+        //printf("db->read_len[i]:%d\n", db->read_len[i]);
+
+        //printf("load_align_arguments() successful\n");
+
+        int32_t pairs = db->n_event_align_pairs[i];
+
+        // db_out->event_align_pairs[i] = (AlignedPair *)malloc(sizeof(AlignedPair)*pairs);
+
+        //call align function and store the output
+        // printf("Calling align_cuda()\n");
+        // align_cuda(core, db);
+        
+        
+
+    }
+
+    printf("before:%d\n", db->n_event_align_pairs);
+
+    printf("Calling align_cuda()\n\n");
+    align_cuda(core, db);
+
+    db_t* db_out;
+    db_out = (db_t*)malloc(sizeof(db_t));
+    db_out->n_event_align_pairs = (int32_t*)malloc(sizeof(int32_t)*db->n_bam_rec);
+    db_out->event_align_pairs = (AlignedPair**)malloc(sizeof(AlignedPair*)*db->n_bam_rec);
+
+    for (int i=0; i<db->n_bam_rec; i++){
+      load_align_outputs(db_out, i, align_args_dump_dir);
+
+      // compare with original output
+      int32_t n_event_align_pairs= db->n_event_align_pairs[i];
+      int32_t n_event_align_pairs_out= db_out->n_event_align_pairs[i];
+      
+      if (n_event_align_pairs!=n_event_align_pairs_out){
+          fprintf(stderr,"%d=\t Found conflicting results in n_event_align_pairs: %d, expected: %d\n",i, n_event_align_pairs, n_event_align_pairs_out );
+          break;
+      }else{
+          fprintf(stderr,"%d=\t Pass\n",i);
+          // if (check_event_align_pairs(db_out->event_align_pairs[i],db->event_align_pairs[i],pairs)==0){
+          //     fprintf(stderr,"%d=\t Found conflict in event_align_pairs\n",i);
+          // }else{
+          //     fprintf(stderr,"%d=\t Run pass\n",i);
+          // }
+      }
+    }
+
+    // printf("readpos:%d, refpos:%d\n",db_out->event_align_pairs[0]->read_pos, db_out->event_align_pairs[0]->ref_pos);
+
+    
+
 
   return 0;
 }
@@ -91,6 +175,7 @@ void align_cuda(core_t *core, db_t *db) {
     uint8_t * host_trace;
     EventKmerPair* host_band_lower_left;
 
+    cl_int cl_n_bam_rec = (cl_int)n_bam_rec;
    // realtime1 = realtime();
 
     //int32_t cuda_device_num = core->opt.cuda_dev_id;
@@ -109,7 +194,10 @@ void align_cuda(core_t *core, db_t *db) {
     for (i = 0; i < n_bam_rec; i++) {
         read_ptr_host[i] = sum_read_len;
         sum_read_len += (db->read_len[i] + 1); //with null term
+        //printf("sum_read_len:%d += (db->read_len[i]: %d + 1)\n", sum_read_len, db->read_len[i]);
     }
+
+    //printf("n_bam_rec %d, sum_read_len %d\n", n_bam_rec, sum_read_len);
     //form the temporary flattened array on host
     char* read_host = (char*)malloc(sizeof(char) * sum_read_len);
     MALLOC_CHK(read_host);
@@ -117,7 +205,7 @@ void align_cuda(core_t *core, db_t *db) {
         ptr_t idx = read_ptr_host[i];
         strcpy(&read_host[idx], db->read[i]);
     }
-
+    
         //now the events : need flattening
     //num events : need flattening
     //get the total size and create the pointers
@@ -159,120 +247,145 @@ void align_cuda(core_t *core, db_t *db) {
 /*
 cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 */
-
+    //cudaMalloc((void**)&read_ptr, n_bam_rec * sizeof(ptr_t));
     if(core->opt.verbosity>1) print_size("read_ptr array",n_bam_rec * sizeof(ptr_t));
-    cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(ptr_t), host_read_ptr, NULL);
+    cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(ptr_t), host_read_ptr, &status);
+    checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
 
+    //cudaMalloc((void**)&read_len, n_bam_rec * sizeof(int32_t));
     if(core->opt.verbosity>1) print_size("read_lens",n_bam_rec * sizeof(int32_t));
-    cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_read_len, NULL);
+    cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_read_len, &status);
+    checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //n_events
     if(core->opt.verbosity>1) print_size("n_events",n_bam_rec * sizeof(int32_t));
-    cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_n_events, NULL);
+    //cudaMalloc((void**)&n_events, n_bam_rec * sizeof(int32_t))
+    cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_n_events, &status);
+    checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //event ptr
     if(core->opt.verbosity>1) print_size("event ptr",n_bam_rec * sizeof(ptr_t));
-    cl_mem event_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(ptr_t), host_event_ptr, NULL);
+    // cudaMalloc((void**)&event_ptr, n_bam_rec * sizeof(ptr_t));
+    cl_mem event_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(ptr_t), host_event_ptr, &status);
+    checkError(status, "Failed clCreateBuffer");;
    // CUDA_CHK();
     //scalings : already linear
     if(core->opt.verbosity>1) print_size("Scalings",n_bam_rec * sizeof(scalings_t));
-    cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(scalings_t), host_scalings, NULL);
+    // cudaMalloc((void**)&scalings, n_bam_rec * sizeof(scalings_t));
+    cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(scalings_t), host_scalings, &status);
+    checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //model : already linear
     model_t* host_model;
-    cl_mem model = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_KMER * sizeof(model_t), host_model, NULL);
+    cl_mem model = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_KMER * sizeof(model_t), host_model, &status);
+    checkError(status, "Failed clCreateBuffer");;
     //CUDA_CHK();
 
     if(core->opt.verbosity>1) print_size("read array",sum_read_len * sizeof(char));
     // cudaMalloc((void**)&read, sum_read_len * sizeof(char)); //with null char
+    cl_mem read = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(char), host_read, &status);
     // CUDA_CHK();
-    cl_mem read = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(char), host_read, NULL);
+    checkError(status, "Failed clCreateBuffer");
     if(core->opt.verbosity>1) print_size("event table",sum_n_events * sizeof(event_t));
     // cudaMalloc((void**)&event_table, sum_n_events * sizeof(event_t));
     // CUDA_CHK();
-    cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_events * sizeof(event_t), host_event_table, NULL);
+    cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_events * sizeof(event_t), host_event_table, &status);
+    checkError(status, "Failed clCreateBuffer");
     model_t* host_model_kmer_cache;
     // cudaMalloc((void**)&model_kmer_cache, sum_read_len * sizeof(model_t));
     // CUDA_CHK();
-    cl_mem model_kmer_cache = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(model_t), host_model_kmer_cache, NULL);
-
+    cl_mem model_kmer_cache = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(model_t), host_model_kmer_cache, &status);
+    checkError(status, "Failed clCreateBuffer");
     /**allocate output arrays for cuda**/
     if(core->opt.verbosity>1) print_size("event align pairs",2 * sum_n_events *sizeof(AlignedPair));
     // cudaMalloc((void**)&event_align_pairs,2 * sum_n_events *sizeof(AlignedPair)); //todo : need better huristic
     // CUDA_CHK();
-    cl_mem event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_events * sizeof(AlignedPair), host_event_align_pairs, NULL);
+    cl_mem event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, 2 * sum_n_events *sizeof(AlignedPair), host_event_align_pairs, &status);
+    checkError(status, "Failed clCreateBuffer");
 // #ifdef CUDA_PRE_MALLOC
 //     n_event_align_pairs=core->cuda->n_event_align_pairs;
 // #else
     if(core->opt.verbosity>1) print_size("n_event_align_pairs",n_bam_rec * sizeof(int32_t));
     // cudaMalloc((void**)&n_event_align_pairs, n_bam_rec * sizeof(int32_t));
     // CUDA_CHK();
-    cl_mem n_event_align_pairs=clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_n_event_align_pairs, NULL);
+    cl_mem n_event_align_pairs=clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_n_event_align_pairs, &status);
+    checkError(status, "Failed clCreateBuffer");
 // #endif
     //scratch arrays
     size_t sum_n_bands = sum_n_events + sum_read_len; //todo : can be optimised
     if(core->opt.verbosity>1) print_size("bands",sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
     // cudaMalloc((void**)&bands,sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
     // CUDA_CHK();
-    cl_mem bands=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(float), host_bands, NULL);
+    cl_mem bands=clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, host_bands, &status);
+    checkError(status, "Failed clCreateBuffer");
     if(core->opt.verbosity>1) print_size("trace",sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
     // cudaMalloc((void**)&trace, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
     // CUDA_CHK();
-    cl_mem trace =clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(uint8_t), host_trace, NULL);
+    cl_mem trace =clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, host_trace, &status);
+    checkError(status, "Failed clCreateBuffer");
 
     // cudaMemset(trace,0,sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH); //initialise the trace array to 0
     
     size_t trace_size = sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH;
-    cl_mem trace_buffer= clCreateBuffer(context, CL_MEM_READ_WRITE, trace_size, trace, NULL);
+    // cl_mem trace_buffer= clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, trace_size, trace, &status);
     uint8_t zero = 0;
-    clEnqueueFillBuffer(queue, trace_buffer, &zero, trace_size, 0, trace_size, 0, NULL, NULL);
+    // clEnqueueFillBuffer(queue, trace_buffer, &zero, trace_size, 0, trace_size, 0, NULL, NULL);
 
-
+    clEnqueueFillBuffer(queue, trace, &zero, sizeof(uint8_t), 0, trace_size, 0, NULL, NULL);
+    checkError(status, "Failed clCreateBuffer");
 
     if(core->opt.verbosity>1) print_size("band_lower_left",sizeof(EventKmerPair)* sum_n_bands);
     // cudaMalloc((void**)&band_lower_left, sizeof(EventKmerPair)* sum_n_bands);
     // CUDA_CHK();
-    cl_mem band_lower_left=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), host_band_lower_left, NULL);
-
+    cl_mem band_lower_left=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), host_band_lower_left, &status);
+    checkError(status, "Failed clCreateBuffer");
     //core->align_cuda_malloc += (realtime() - realtime1);
 /* cuda mem copys*/
     //realtime1 =realtime();  
     //cudaMemcpy(read_ptr, read_ptr_host, n_bam_rec * sizeof(ptr_t),cudaMemcpyHostToDevice);
-    clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
+    status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
+    checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
     //cudaMemcpy(read, read_host, sum_read_len * sizeof(char), cudaMemcpyHostToDevice);
-    clEnqueueWriteBuffer(queue, read, CL_TRUE, 0,sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
+    status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0,sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
+    checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
     //read length : already linear hence direct copy
     // cudaMemcpy(read_len, db->read_len, n_bam_rec * sizeof(int32_t),cudaMemcpyHostToDevice);
-    clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t),db->read_len, 0, NULL, NULL);
+    status = clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t),db->read_len, 0, NULL, NULL);
+    checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
     // cudaMemcpy(n_events, n_events_host, n_bam_rec * sizeof(int32_t),cudaMemcpyHostToDevice);
-    clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, NULL);
+    status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, NULL);
+    checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
     // cudaMemcpy(event_ptr, event_ptr_host, n_bam_rec * sizeof(ptr_t),cudaMemcpyHostToDevice);
-    clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, NULL);
+    status = clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, NULL);
+    checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
     // cudaMemcpy(event_table, event_table_host, sizeof(event_t) * sum_n_events,cudaMemcpyHostToDevice);
-    clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, NULL);
+    status = clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, NULL);
+    checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
 
 #ifndef CUDA_PRE_MALLOC
 //model : already linear //move to cuda_init
     // cudaMemcpy(model, core->model, NUM_KMER * sizeof(model_t), cudaMemcpyHostToDevice);
-    clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, NULL);
+    status = clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, NULL);
+    checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 #endif
     //can be interleaved
     // cudaMemcpy(scalings, db->scalings, sizeof(scalings_t) * n_bam_rec, cudaMemcpyHostToDevice);
-    clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, NULL);
+    status = clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, NULL);
+    checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
     
     //realtime1 = realtime();
@@ -283,30 +396,271 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
       global = gridpre .* blockpre
     */
 
+
+    //******************************************************************************************************
     /*pre kernel*/
+    //******************************************************************************************************
+   
+    // Set the kernel argument (argument 0)
+    status = clSetKernelArg(align_kernel_pre_2d, 0, sizeof(cl_mem), &read);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 1, sizeof(cl_mem), &read_len);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 2, sizeof(cl_mem), &read_ptr);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 3, sizeof(cl_mem), &n_events);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 4, sizeof(cl_mem), &event_ptr);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 5, sizeof(cl_mem), &model);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 6, sizeof(int32_t), &n_bam_rec);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 7, sizeof(cl_mem), &model_kmer_cache);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 8, sizeof(cl_mem), &bands);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 9, sizeof(cl_mem), &trace);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+    status = clSetKernelArg(align_kernel_pre_2d, 10, sizeof(cl_mem), &band_lower_left);
+    checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
+
+
+
+
     assert(BLOCK_LEN_BANDWIDTH>=ALN_BANDWIDTH);
     // dim3 gridpre(1,(db->n_bam_rec + BLOCK_LEN_READS - 1) / BLOCK_LEN_READS);
-    const size_t gridpre[2] = {1, (size_t)(db->n_bam_rec + BLOCK_LEN_READS - 1) / BLOCK_LEN_READS};
+    const size_t gridpre[2] = {BLOCK_LEN_BANDWIDTH, (size_t)(db->n_bam_rec + BLOCK_LEN_READS - 1)}; //global
     // dim3 blockpre(BLOCK_LEN_BANDWIDTH,BLOCK_LEN_READS);
-    const size_t blockpre[2] = {BLOCK_LEN_BANDWIDTH, BLOCK_LEN_READS};
+    const size_t blockpre[2] = {BLOCK_LEN_BANDWIDTH, BLOCK_LEN_READS}; //local
+
+
+
 	// if(core->opt.verbosity>1) fprintf(stderr,"grid %d,%d, block %d,%d\n",gridpre.x,gridpre.y, blockpre.x,blockpre.y);
   if(core->opt.verbosity>1) fprintf(stderr,"grid %zu,%zu, block %zu,%zu\n",gridpre[0],gridpre[1], blockpre[0],blockpre[1]);
 
   //   align_kernel_pre_2d<<<gridpre, blockpre>>>( read,
   //       read_len, read_ptr, n_events,
   //       event_ptr, model, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left);
-
-  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, 0, gridpre, blockpre, 0, NULL, NULL);
+  printf("Calling Pre kernel\n");
+  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, NULL, gridpre, blockpre, 0, NULL, NULL);
 
   //   cudaDeviceSynchronize();CUDA_CHK();
   status = clFinish(queue);
   checkError(status, "Failed to finish");
-  printf("\nKernel execution is complete.\n");
+  printf("Pre kernel finished!\n\n");
 
   //   if(core->opt.verbosity>1) fprintf(stderr, "[%s::%.3f*%.2f] align-pre kernel done\n", __func__,realtime() - realtime1, cputime() / (realtime() - realtime1));
   //   core->align_kernel_time += (realtime() - realtime1);
   //   core->align_pre_kernel_time += (realtime() - realtime1);
+  
+  //realtime1 = realtime();
 
+
+
+
+  //******************************************************************************************************
+  /* core kernel*/
+  //******************************************************************************************************
+
+  // Set the kernel argument (argument 0)
+  status = clSetKernelArg(align_kernel_core_2d_shm, 0, sizeof(cl_mem), &read_len);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 1, sizeof(cl_mem), &read_ptr);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 2, sizeof(cl_mem), &event_table);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 3, sizeof(cl_mem), &n_events);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 4, sizeof(cl_mem), &event_ptr);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 5, sizeof(cl_mem), &scalings);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 6, sizeof(int32_t), &n_bam_rec);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 7, sizeof(cl_mem), &model_kmer_cache);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 8, sizeof(cl_mem), &bands);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 9, sizeof(cl_mem), &trace);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+  status = clSetKernelArg(align_kernel_core_2d_shm, 10, sizeof(cl_mem), &band_lower_left);
+  checkError(status, "Failed to set kernel args to align_kernel_core_2d_shm");
+
+
+  assert(BLOCK_LEN_BANDWIDTH>=ALN_BANDWIDTH);
+  //dim3 grid1(1,(db->n_bam_rec + BLOCK_LEN_READS - 1) / BLOCK_LEN_READS);
+  const size_t grid1[2] = {BLOCK_LEN_BANDWIDTH, (size_t)(db->n_bam_rec + BLOCK_LEN_READS - 1)}; //global
+  //dim3 block1(BLOCK_LEN_BANDWIDTH,BLOCK_LEN_READS);
+  const size_t block1[2] = {BLOCK_LEN_BANDWIDTH, BLOCK_LEN_READS}; //local
+  //align_kernel_core_2d_shm<<<grid1, block1>>>(read_len, read_ptr, event_table, n_events,event_ptr, scalings, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left );
+  printf("Calling core kernel\n");
+  clEnqueueNDRangeKernel(queue, align_kernel_core_2d_shm, 2, NULL, grid1, block1, 0, NULL, NULL);
+  // cudaDeviceSynchronize();CUDA_CHK();
+  status = clFinish(queue);
+  checkError(status, "Failed to finish");
+  printf("Core kernel finished!\n\n");
+
+//   if(core->opt.verbosity>1) fprintf(stderr, "[%s::%.3f*%.2f] align-core kernel done\n", __func__,
+//     realtime() - realtime1, cputime() / (realtime() - realtime1));
+//     core->align_kernel_time += (realtime() - realtime1);
+// core->align_core_kernel_time += (realtime() - realtime1);
+//realtime1 = realtime();
+ 
+
+
+  //******************************************************************************************************
+  /*post kernel*/
+  //******************************************************************************************************
+
+  // Set the kernel argument (argument 0)
+  status = clSetKernelArg(align_kernel_post, 0, sizeof(cl_mem), &event_align_pairs);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 1, sizeof(cl_mem), &n_event_align_pairs);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 2, sizeof(cl_mem), &read_len);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 3, sizeof(cl_mem), &read_ptr);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 4, sizeof(cl_mem), &event_table);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 5, sizeof(cl_mem), &n_events);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 6, sizeof(cl_mem), &event_ptr);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 7, sizeof(int32_t), &n_bam_rec);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 8, sizeof(cl_mem), &scalings);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 9, sizeof(cl_mem), &model_kmer_cache);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 10, sizeof(cl_mem), &bands);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 11, sizeof(cl_mem), &trace);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+  status = clSetKernelArg(align_kernel_post, 12, sizeof(cl_mem), &band_lower_left);
+  checkError(status, "Failed to set kernel args to align_kernel_post");
+
+  
+
+  // int32_t BLOCK_LEN = core->opt.cuda_block_size;
+  int32_t BLOCK_LEN = 64;
+  //dim3 gridpost((db->n_bam_rec + BLOCK_LEN - 1) / BLOCK_LEN);
+  const size_t gridpost[1] = {(size_t)(db->n_bam_rec + BLOCK_LEN - 1)}; //global ***************check
+  //dim3 blockpost(BLOCK_LEN);
+  const size_t blockpost[1] = {(size_t)BLOCK_LEN}; //global
+
+  #ifndef WARP_HACK
+      // align_kernel_post<<<gridpost, blockpost>>>(event_align_pairs, n_event_align_pairs,
+      //     read_len, read_ptr, event_table, n_events,
+      //     event_ptr,scalings, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left );
+      printf("Calling post kernel. 'WARP_HACK' not set\n");
+      clEnqueueNDRangeKernel(queue, align_kernel_post, 1, NULL, gridpost, blockpost, 0, NULL, NULL);
+  #else
+      assert(BLOCK_LEN>=32);
+      //dim3 grid1post((db->n_bam_rec + (BLOCK_LEN/32) - 1) / (BLOCK_LEN/32));
+      const size_t grid1post[1] = {(db->n_bam_rec + (BLOCK_LEN/32) - 1) / (BLOCK_LEN/32)};
+      //if(core->opt.verbosity>1) fprintf(stderr,"grid new %d\n",grid1post.x);
+      if(core->opt.verbosity>1) fprintf(stderr,"grid new %d\n",grid1post[0]);
+      // align_kernel_post<<<grid1post, blockpost>>>(event_align_pairs, n_event_align_pairs,
+      //     read_len, read_ptr, event_table, n_events,
+      //     event_ptr, scalings, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left );
+      printf("Calling post kernel. 'WARP_HACK' set\n");
+      clEnqueueNDRangeKernel(queue, align_kernel_post, 2, NULL, gridpost, blockpost, 0, NULL, NULL);
+
+  #endif
+  //cudaDeviceSynchronize();CUDA_CHK();
+  status = clFinish(queue);
+  checkError(status, "Failed to finish");
+  printf("Post kernel finished!\n\n");
+//   if(core->opt.verbosity>1) fprintf(stderr, "[%s::%.3f*%.2f] align-post kernel done\n", __func__,
+//           realtime() - realtime1, cputime() / (realtime() - realtime1));
+//   core->align_kernel_time += (realtime() - realtime1);
+// core->align_post_kernel_time += (realtime() - realtime1); 
+
+//realtime1 =  realtime();
+
+  //cudaMemcpy(db->n_event_align_pairs, n_event_align_pairs,n_bam_rec * sizeof(int32_t), cudaMemcpyDeviceToHost);
+  status = clEnqueueReadBuffer(queue, n_event_align_pairs, CL_TRUE, 0, sizeof(int32_t) * n_bam_rec, db->n_event_align_pairs, 0, NULL, NULL);
+  // CUDA_CHK();
+  checkError(status, "clEnqueueReadBuffer");
+  
+  //cudaMemcpy(event_align_pairs_host, event_align_pairs,2 * sum_n_events * sizeof(AlignedPair), cudaMemcpyDeviceToHost);
+  status = clEnqueueReadBuffer(queue, event_align_pairs, CL_TRUE, 0, 2 * sum_n_events * sizeof(AlignedPair), event_align_pairs_host, 0, NULL, NULL);   
+  //CUDA_CHK();
+  checkError(status, "clEnqueueReadBuffer");
+  //core->align_cuda_memcpy += (realtime() - realtime1);
+
+  
+
+//realtime1 =  realtime();
+#ifndef CUDA_PRE_MALLOC
+  //cudaFree(read_ptr);
+  clReleaseMemObject(read_ptr);
+  //cudaFree(read_len);
+  clReleaseMemObject(read_len);
+  // cudaFree(n_events);
+  clReleaseMemObject(n_events);
+  // cudaFree(event_ptr);
+  clReleaseMemObject(event_ptr);
+  // cudaFree(model); //constant memory
+  clReleaseMemObject(model);
+  // cudaFree(scalings);
+  clReleaseMemObject(scalings);
+  // cudaFree(n_event_align_pairs);
+  clReleaseMemObject(n_event_align_pairs);
+#endif
+  // cudaFree(read); //with null char
+  clReleaseMemObject(read);
+  // cudaFree(event_table);
+  clReleaseMemObject(event_table);
+  // cudaFree(event_align_pairs);
+  clReleaseMemObject(event_align_pairs);
+  // cudaFree(bands);
+  clReleaseMemObject(bands);
+  // cudaFree(trace);
+  clReleaseMemObject(trace);
+  // cudaFree(band_lower_left);
+  clReleaseMemObject(band_lower_left);
+  // cudaFree(model_kmer_cache);
+  clReleaseMemObject(model_kmer_cache);
+
+//core->align_cuda_malloc += (realtime() - realtime1);
+
+  /** post work**/
+//realtime1 =  realtime();
+
+  // printf("readpos:%d, refpos:%d\n",event_align_pairs_host[0].read_pos, event_align_pairs_host[0].ref_pos);
+
+  //copy back
+  // for (i = 0; i < n_bam_rec; i++) {
+  //     ptr_t idx = event_ptr_host[i];
+  //     memcpy(db->event_align_pairs[i], &event_align_pairs_host[idx * 2], sizeof(AlignedPair) * db->n_event_align_pairs[i]);
+  // }
+
+  
+
+  //free the temp arrays on host
+#ifndef CUDA_PRE_MALLOC
+  free(read_ptr_host);
+  free(n_events_host);
+  free(event_ptr_host);
+#endif
+  free(read_host);
+  free(event_table_host);
+  free(event_align_pairs_host);
+
+
+//core->align_cuda_postprocess += (realtime() - realtime1);
+
+
+
+  cleanup();
+
+
+
+
+  
 }
 
 
@@ -374,11 +728,11 @@ bool init() {
   const char *kernel2_name = "align_kernel_core_2d_shm";  // Kernel name, as defined in the CL file
   const char *kernel3_name = "align_kernel_post";  // Kernel name, as defined in the CL file
   align_kernel_pre_2d = clCreateKernel(program, kernel1_name, &status);
-  checkError(status, "Failed to create kernel");
+  checkError(status, "Failed to pre create kernel");
   align_kernel_core_2d_shm = clCreateKernel(program, kernel2_name, &status);
-  checkError(status, "Failed to create kernel");
+  checkError(status, "Failed to core create kernel");
   align_kernel_post = clCreateKernel(program, kernel3_name, &status);
-  checkError(status, "Failed to create kernel");
+  checkError(status, "Failed to post create kernel");
 
   
 
@@ -469,5 +823,6 @@ static void display_device_info( cl_device_id device ) {
       printf("%-40s = %s\n", "Command queue profiling enabled? ", ((ccp & CL_QUEUE_PROFILING_ENABLE)?"true":"false"));
    }
 }
+
 
 #endif
