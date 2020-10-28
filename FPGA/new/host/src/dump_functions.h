@@ -1,3 +1,20 @@
+void load_n_bam_rec(db_t *db, const char * align_args_dump_dir) {
+    char foldername[40];
+    snprintf(foldername, sizeof(foldername), "%s", align_args_dump_dir);
+
+    char filename[50];
+    FILE * fp;
+    size_t read_count;
+    int32_t read_count2;
+
+    // db->n_bam_rec
+    snprintf(filename, sizeof(filename), "%s/%s", foldername, "n_bam_rec.dat");
+    fp = fopen(filename, "r");
+    if(fp==NULL)printf("Can not open %s\n", filename);
+    read_count = fread(&(db->n_bam_rec), sizeof(int32_t), 1, fp);
+    assert(read_count == 1);
+    fclose(fp);
+}
 
 
 void load_align_arguments(core_t *core, db_t *db, int32_t i, const char * align_args_dump_dir) {
@@ -18,14 +35,15 @@ void load_align_arguments(core_t *core, db_t *db, int32_t i, const char * align_
     assert(read_count == 1);
     fclose(fp);
     
+    
     // db->read[i] - sequence
     snprintf(filename, sizeof(filename), "%s/%s", foldername, "read[i].dat");
     fp = fopen(filename, "r");
     if(fp==NULL)printf("Can not open %s\n", filename);
-    int32_t read_len = db->read_len[i];
-    db->read[i] = (char*)malloc(sizeof(char)*read_len);
-    read_count2 = fread(db->read[i], sizeof(char), read_len, fp);
-    assert(read_count2 == read_len);
+    db->read[i] = (char*)malloc(sizeof(char)* (db->read_len[i] + 1)); //with null term
+    read_count2 = fread(db->read[i], sizeof(char), db->read_len[i], fp); //read without null term
+    db->read[i][db->read_len[i]]='\0';
+    assert(read_count2 == db->read_len[i]);
     fclose(fp);
     
     // db->et[i] - events

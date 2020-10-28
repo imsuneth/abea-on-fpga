@@ -73,7 +73,12 @@ int main() {
   db_t* db;
   db = (db_t*)malloc(sizeof(db_t));
 
+  
+  load_n_bam_rec(db, align_args_dump_dir);
+
   db->n_bam_rec = 1;
+
+  printf("n_bam_rec:%d\n", db->n_bam_rec);
   
   db->n_event_align_pairs = (int32_t*)malloc(sizeof(int32_t)*db->n_bam_rec);
   db->event_align_pairs = (AlignedPair**)malloc(sizeof(AlignedPair*)*db->n_bam_rec);
@@ -83,65 +88,49 @@ int main() {
   db->scalings = (scalings_t*)malloc(sizeof(scalings_t)*db->n_bam_rec);
   db->f5 = (fast5_t**)malloc(sizeof(fast5_t*)*db->n_bam_rec);
 
-  
+  db_t* db_out;
+  db_out = (db_t*)malloc(sizeof(db_t));
+  db_out->n_event_align_pairs = (int32_t*)malloc(sizeof(int32_t)*db->n_bam_rec);
+  db_out->event_align_pairs = (AlignedPair**)malloc(sizeof(AlignedPair*)*db->n_bam_rec);
 
   core_t* core;
   core = (core_t*)malloc(sizeof(core_t));
-  core->model = (model_t*)malloc(sizeof(model_t)*db->n_bam_rec);
+  // core->model = (model_t*)malloc(sizeof(model_t)*db->n_bam_rec);
 
-  
-
-  printf("db, core initialized\n");
+  // printf("db, core initialized\n");
 
   for (int i=0; i<db->n_bam_rec; i++){
 
         load_align_arguments(core, db, i, align_args_dump_dir);
+        load_align_outputs(db_out, i, align_args_dump_dir);
+        db->event_align_pairs[i] = (AlignedPair *)malloc(sizeof(AlignedPair) * db_out->n_event_align_pairs[i]);       
 
-        //printf("db->read_len[i]:%d\n", db->read_len[i]);
+  }
 
-        //printf("load_align_arguments() successful\n");
+  printf("Calling align_cuda()\n\n");
+  align_cuda(core, db);
 
-        int32_t pairs = db->n_event_align_pairs[i];
+    
 
-        // db_out->event_align_pairs[i] = (AlignedPair *)malloc(sizeof(AlignedPair)*pairs);
-
-        //call align function and store the output
-        // printf("Calling align_cuda()\n");
-        // align_cuda(core, db);
-        
-        
-
+  for (int i=0; i<db->n_bam_rec; i++){
+    // compare with original output
+    int32_t n_event_align_pairs= db->n_event_align_pairs[i];
+    int32_t n_event_align_pairs_out= db_out->n_event_align_pairs[i];
+    
+    if (n_event_align_pairs!=n_event_align_pairs_out){
+        fprintf(stderr,"%d=\toutput: %d, expected: %d\tFailed\n",i, n_event_align_pairs, n_event_align_pairs_out );
+        //break;
+    }else{
+        fprintf(stderr,"%d=\toutput: %d, expected: %d\tPassed\n",i, n_event_align_pairs, n_event_align_pairs_out );
+        // if (check_event_align_pairs(db_out->event_align_pairs[i],db->event_align_pairs[i],pairs)==0){
+        //     fprintf(stderr,"%d=\t Found conflict in event_align_pairs\n",i);
+        // }else{
+        //     fprintf(stderr,"%d=\t Run pass\n",i);
+        // }
     }
+  }
 
-    printf("Calling align_cuda()\n\n");
-    align_cuda(core, db);
-
-    db_t* db_out;
-    db_out = (db_t*)malloc(sizeof(db_t));
-    db_out->n_event_align_pairs = (int32_t*)malloc(sizeof(int32_t)*db->n_bam_rec);
-    db_out->event_align_pairs = (AlignedPair**)malloc(sizeof(AlignedPair*)*db->n_bam_rec);
-
-    for (int i=0; i<db->n_bam_rec; i++){
-      load_align_outputs(db_out, i, align_args_dump_dir);
-
-      // compare with original output
-      int32_t n_event_align_pairs= db->n_event_align_pairs[i];
-      int32_t n_event_align_pairs_out= db_out->n_event_align_pairs[i];
-      
-      if (n_event_align_pairs!=n_event_align_pairs_out){
-          fprintf(stderr,"%d=\t Found conflicting results in n_event_align_pairs: %d, expected: %d\n",i, n_event_align_pairs, n_event_align_pairs_out );
-          break;
-      }else{
-          fprintf(stderr,"%d=\t Pass\n",i);
-          // if (check_event_align_pairs(db_out->event_align_pairs[i],db->event_align_pairs[i],pairs)==0){
-          //     fprintf(stderr,"%d=\t Found conflict in event_align_pairs\n",i);
-          // }else{
-          //     fprintf(stderr,"%d=\t Run pass\n",i);
-          // }
-      }
-    }
-
-    // printf("readpos:%d, refpos:%d\n",db_out->event_align_pairs[0]->read_pos, db_out->event_align_pairs[0]->ref_pos);
+  // printf("readpos:%d, refpos:%d\n",db_out->event_align_pairs[0]->read_pos, db_out->event_align_pairs[0]->ref_pos);
 
     
 
@@ -172,7 +161,7 @@ void align_cuda(core_t *core, db_t *db) {
     EventKmerPair* band_lower_left_host;
 
     cl_int cl_n_bam_rec = (cl_int)n_bam_rec;
-   // realtime1 = realtime();
+    // realtime1 = realtime();
 
     //int32_t cuda_device_num = core->opt.cuda_dev_id;
 
@@ -191,9 +180,10 @@ void align_cuda(core_t *core, db_t *db) {
         read_ptr_host[i] = sum_read_len;
         sum_read_len += (db->read_len[i] + 1); //with null term
         //printf("sum_read_len:%d += (db->read_len[i]: %d + 1)\n", sum_read_len, db->read_len[i]);
+        
     }
 
-    //printf("n_bam_rec %d, sum_read_len %d\n", n_bam_rec, sum_read_len);
+    fprintf(stderr, "n_bam_rec %d, sum_read_len %d\n", n_bam_rec, sum_read_len);
     //form the temporary flattened array on host
     read_host = (char*)malloc(sizeof(char) * sum_read_len);
     MALLOC_CHK(read_host);
@@ -201,6 +191,7 @@ void align_cuda(core_t *core, db_t *db) {
         ptr_t idx = read_ptr_host[i];
         strcpy(&read_host[idx], db->read[i]);
     }
+
     
         //now the events : need flattening
     //num events : need flattening
@@ -236,7 +227,7 @@ void align_cuda(core_t *core, db_t *db) {
         (AlignedPair*)malloc(2 * sum_n_events * sizeof(AlignedPair));
     MALLOC_CHK(event_align_pairs_host);
 
-  //core->align_cuda_preprocess += (realtime() - realtime1);
+  // core->align_cuda_preprocess += (realtime() - realtime1);
 
     /** Start GPU mallocs**/
   //realtime1 = realtime();
@@ -244,46 +235,46 @@ void align_cuda(core_t *core, db_t *db) {
 cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 */
     //cudaMalloc((void**)&read_ptr, n_bam_rec * sizeof(ptr_t));
-    if(core->opt.verbosity>1) print_size("read_ptr array",n_bam_rec * sizeof(ptr_t));
+    // if(core->opt.verbosity>1) print_size("read_ptr array",n_bam_rec * sizeof(ptr_t));
     cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(ptr_t), read_ptr_host, &status);
     checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
 
     //cudaMalloc((void**)&read_len, n_bam_rec * sizeof(int32_t));
-    if(core->opt.verbosity>1) print_size("read_lens",n_bam_rec * sizeof(int32_t));
-    cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), read_len_host, &status);
+    // if(core->opt.verbosity>1) print_size("read_lens",n_bam_rec * sizeof(int32_t));
+    cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), NULL, &status);
     checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //n_events
-    if(core->opt.verbosity>1) print_size("n_events",n_bam_rec * sizeof(int32_t));
+    // if(core->opt.verbosity>1) print_size("n_events",n_bam_rec * sizeof(int32_t));
     //cudaMalloc((void**)&n_events, n_bam_rec * sizeof(int32_t))
     cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(int32_t), n_events_host, &status);
     checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //event ptr
-    if(core->opt.verbosity>1) print_size("event ptr",n_bam_rec * sizeof(ptr_t));
+    // if(core->opt.verbosity>1) print_size("event ptr",n_bam_rec * sizeof(ptr_t));
     // cudaMalloc((void**)&event_ptr, n_bam_rec * sizeof(ptr_t));
     cl_mem event_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(ptr_t), event_ptr_host, &status);
     checkError(status, "Failed clCreateBuffer");;
    // CUDA_CHK();
     //scalings : already linear
-    if(core->opt.verbosity>1) print_size("Scalings",n_bam_rec * sizeof(scalings_t));
+    // if(core->opt.verbosity>1) print_size("Scalings",n_bam_rec * sizeof(scalings_t));
     // cudaMalloc((void**)&scalings, n_bam_rec * sizeof(scalings_t));
-    cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(scalings_t), scalings_host, &status);
+    cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(scalings_t), NULL, &status);
     checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //model : already linear
     model_t* model_host;
-    cl_mem model = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_KMER * sizeof(model_t), model_host, &status);
+    cl_mem model = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_KMER * sizeof(model_t), NULL, &status);
     checkError(status, "Failed clCreateBuffer");;
     //CUDA_CHK();
 
-    if(core->opt.verbosity>1) print_size("read array",sum_read_len * sizeof(char));
+    // if(core->opt.verbosity>1) print_size("read array",sum_read_len * sizeof(char));
     // cudaMalloc((void**)&read, sum_read_len * sizeof(char)); //with null char
     cl_mem read = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, sum_read_len * sizeof(char), read_host, &status);
     // CUDA_CHK();
     checkError(status, "Failed clCreateBuffer");
-    if(core->opt.verbosity>1) print_size("event table",sum_n_events * sizeof(event_t));
+    // if(core->opt.verbosity>1) print_size("event table",sum_n_events * sizeof(event_t));
     // cudaMalloc((void**)&event_table, sum_n_events * sizeof(event_t));
     // CUDA_CHK();
     cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, sum_n_events * sizeof(event_t), event_table_host, &status);
@@ -291,10 +282,10 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     model_t* model_kmer_cache_host;
     // cudaMalloc((void**)&model_kmer_cache, sum_read_len * sizeof(model_t));
     // CUDA_CHK();
-    cl_mem model_kmer_cache = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(model_t), model_kmer_cache_host, &status);
+    cl_mem model_kmer_cache = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(model_t), NULL, &status);
     checkError(status, "Failed clCreateBuffer");
     /**allocate output arrays for cuda**/
-    if(core->opt.verbosity>1) print_size("event align pairs",2 * sum_n_events *sizeof(AlignedPair));
+    // if(core->opt.verbosity>1) print_size("event align pairs",2 * sum_n_events *sizeof(AlignedPair));
     // cudaMalloc((void**)&event_align_pairs,2 * sum_n_events *sizeof(AlignedPair)); //todo : need better huristic
     // CUDA_CHK();
     cl_mem event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, 2 * sum_n_events *sizeof(AlignedPair), event_align_pairs_host, &status);
@@ -302,23 +293,23 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 // #ifdef CUDA_PRE_MALLOC
 //     n_event_align_pairs=core->cuda->n_event_align_pairs;
 // #else
-    if(core->opt.verbosity>1) print_size("n_event_align_pairs",n_bam_rec * sizeof(int32_t));
+    // if(core->opt.verbosity>1) print_size("n_event_align_pairs",n_bam_rec * sizeof(int32_t));
     // cudaMalloc((void**)&n_event_align_pairs, n_bam_rec * sizeof(int32_t));
     // CUDA_CHK();
-    cl_mem n_event_align_pairs=clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), n_event_align_pairs_host, &status);
+    cl_mem n_event_align_pairs=clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), NULL, &status);
     checkError(status, "Failed clCreateBuffer");
 // #endif
     //scratch arrays
     size_t sum_n_bands = sum_n_events + sum_read_len; //todo : can be optimised
-    if(core->opt.verbosity>1) print_size("bands",sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
+    // if(core->opt.verbosity>1) print_size("bands",sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
     // cudaMalloc((void**)&bands,sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
     // CUDA_CHK();
-    cl_mem bands=clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, bands_host, &status);
+    cl_mem bands=clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
     checkError(status, "Failed clCreateBuffer");
-    if(core->opt.verbosity>1) print_size("trace",sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
+    // if(core->opt.verbosity>1) print_size("trace",sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
     // cudaMalloc((void**)&trace, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
     // CUDA_CHK();
-    cl_mem trace =clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, trace_host, &status);
+    cl_mem trace =clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
     checkError(status, "Failed clCreateBuffer");
 
     // cudaMemset(trace,0,sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH); //initialise the trace array to 0
@@ -331,10 +322,10 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     clEnqueueFillBuffer(queue, trace, &zero, sizeof(uint8_t), 0, trace_size, 0, NULL, NULL);
     checkError(status, "Failed clCreateBuffer");
 
-    if(core->opt.verbosity>1) print_size("band_lower_left",sizeof(EventKmerPair)* sum_n_bands);
+    // if(core->opt.verbosity>1) print_size("band_lower_left",sizeof(EventKmerPair)* sum_n_bands);
     // cudaMalloc((void**)&band_lower_left, sizeof(EventKmerPair)* sum_n_bands);
     // CUDA_CHK();
-    cl_mem band_lower_left=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), band_lower_left_host, &status);
+    cl_mem band_lower_left=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), NULL, &status);
     checkError(status, "Failed clCreateBuffer");
     //core->align_cuda_malloc += (realtime() - realtime1);
 
@@ -437,7 +428,7 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 
 
 	// if(core->opt.verbosity>1) fprintf(stderr,"grid %d,%d, block %d,%d\n",gridpre.x,gridpre.y, blockpre.x,blockpre.y);
-  if(core->opt.verbosity>1) fprintf(stderr,"grid %zu,%zu, block %zu,%zu\n",gridpre[0],gridpre[1], blockpre[0],blockpre[1]);
+  // if(core->opt.verbosity>1) fprintf(stderr,"grid %zu,%zu, block %zu,%zu\n",gridpre[0],gridpre[1], blockpre[0],blockpre[1]);
 
   //   align_kernel_pre_2d<<<gridpre, blockpre>>>( read,
   //       read_len, read_ptr, n_events,
@@ -546,7 +537,7 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
   // int32_t BLOCK_LEN = core->opt.cuda_block_size;
   int32_t BLOCK_LEN = 64;
   //dim3 gridpost((db->n_bam_rec + BLOCK_LEN - 1) / BLOCK_LEN);
-  const size_t gridpost[1] = {(size_t)(db->n_bam_rec + BLOCK_LEN - 1)}; //global ***************check
+  const size_t gridpost[1] = {(size_t)(((db->n_bam_rec + BLOCK_LEN - 1)/ BLOCK_LEN)*BLOCK_LEN)}; //global ***************check
   //dim3 blockpost(BLOCK_LEN);
   const size_t blockpost[1] = {(size_t)BLOCK_LEN}; //global
 
@@ -632,6 +623,7 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 
   // printf("readpos:%d, refpos:%d\n",event_align_pairs_host[0].read_pos, event_align_pairs_host[0].ref_pos);
 
+
   //copy back
   // for (i = 0; i < n_bam_rec; i++) {
   //     ptr_t idx = event_ptr_host[i];
@@ -641,14 +633,10 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
   
 
   //free the temp arrays on host
-#ifndef CUDA_PRE_MALLOC
-  fprintf(stderr, "here1\n");  
+#ifndef CUDA_PRE_MALLOC 
   free(read_ptr_host);
-  fprintf(stderr, "here2\n");
   free(n_events_host);
-  fprintf(stderr, "here3\n");
   free(event_ptr_host);
-  fprintf(stderr, "here4\n");
 #endif
   free(read_host);
   free(event_table_host);
@@ -666,6 +654,13 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 
   
 }
+
+
+
+
+
+
+
 
 
 /////// HELPER FUNCTIONS ///////
@@ -768,7 +763,7 @@ void cleanup() {
 
 // Helper functions to display parameters returned by OpenCL queries
 static void device_info_ulong( cl_device_id device, cl_device_info param, const char* name) {
-   cl_ulong a;
+   cl_ulong a=99;
    clGetDeviceInfo(device, param, sizeof(cl_ulong), &a, NULL);
    printf("%-40s = %lu\n", name, a);
 }

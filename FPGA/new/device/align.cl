@@ -1,7 +1,7 @@
 #include "f5c.h"
 
 //todo : can make more efficient using bit encoding
-__global inline uint32_t get_rank(char base) {
+__global uint32_t get_rank(char base) {
     if (base == 'A') { //todo: do we neeed simple alpha?
         return 0;
     } else if (base == 'C') {
@@ -292,6 +292,7 @@ __kernel void align_kernel_core_2d_shm(
     size_t i = get_global_id(1);
     size_t offset = get_global_id(0);
 
+    if(offset==0)printf("i:\t%lu\n", i);
 
     __local float bands_shm[3][ALN_BANDWIDTH];
     __local EventKmerPair band_lower_left_shm[3];

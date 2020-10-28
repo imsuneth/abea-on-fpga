@@ -337,13 +337,13 @@ __kernel void align_kernel_core_2d_shm(
         band_lower_left_shm[1] = band_lower_left[1];
         band_lower_left_shm[2] = band_lower_left[0];
     
-    }
+    
         // __syncthreads(); //CUDA
         printf("IN CORE KERNEL - IN LOOP - before barrier 0!\n");
         barrier(CLK_LOCAL_MEM_FENCE); //OpenCL
         printf("IN CORE KERNEL - IN LOOP - after barrier 0!\n");
 
-    if (i < n_bam_rec && offset<ALN_BANDWIDTH) {
+
         /*
             CLK_LOCAL_MEM_FENCE: The barrier function
 will either flush any variables stored in local
