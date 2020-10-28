@@ -69,7 +69,7 @@ int main() {
   printf("init() successful\n");
 
   // Load dump files
-  const char * align_args_dump_dir = "align_args_dump";
+  const char * align_args_dump_dir = "dump_test";
   
 
   db_t* db;
@@ -642,9 +642,13 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 
   //free the temp arrays on host
 #ifndef CUDA_PRE_MALLOC
+  fprintf(stderr, "here1\n");  
   free(read_ptr_host);
+  fprintf(stderr, "here2\n");
   free(n_events_host);
+  fprintf(stderr, "here3\n");
   free(event_ptr_host);
+  fprintf(stderr, "here4\n");
 #endif
   free(read_host);
   free(event_table_host);

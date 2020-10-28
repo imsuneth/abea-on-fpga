@@ -57,7 +57,7 @@ void load_align_arguments(core_t *core, db_t *db, int32_t i, const char * align_
     fclose(fp);
 
     // db->f5[i]->sample_rate - sample_rate
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "f5[i]->sample_rate.dat");
+    snprintf(filename, sizeof(filename), "%s/%s", foldername, "f5[i].sample_rate.dat");
     fp = fopen(filename, "r");
     if(fp==NULL)printf("Can not open %s\n", filename);
     db->f5[i] = (fast5_t*)malloc(sizeof(fast5_t));
