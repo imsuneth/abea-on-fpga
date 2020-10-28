@@ -337,16 +337,20 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     cl_mem band_lower_left=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), band_lower_left_host, &status);
     checkError(status, "Failed clCreateBuffer");
     //core->align_cuda_malloc += (realtime() - realtime1);
+
+
+
+
 /* cuda mem copys*/
     //realtime1 =realtime();  
     //cudaMemcpy(read_ptr, read_ptr_host, n_bam_rec * sizeof(ptr_t),cudaMemcpyHostToDevice);
-    status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
-    checkError(status, "Failed clEnqueueWriteBuffer");
+    // status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
+    // checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
     //cudaMemcpy(read, read_host, sum_read_len * sizeof(char), cudaMemcpyHostToDevice);
-    status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0,sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
-    checkError(status, "Failed clEnqueueWriteBuffer");
+    // status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0,sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
+    // checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
     //read length : already linear hence direct copy
@@ -356,8 +360,8 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     // CUDA_CHK();
 
     // cudaMemcpy(n_events, n_events_host, n_bam_rec * sizeof(int32_t),cudaMemcpyHostToDevice);
-    status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, NULL);
-    checkError(status, "Failed clEnqueueWriteBuffer");
+    // status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, NULL);
+    // checkError(status, "Failed clEnqueueWriteBuffer");
     // CUDA_CHK();
 
     // cudaMemcpy(event_ptr, event_ptr_host, n_bam_rec * sizeof(ptr_t),cudaMemcpyHostToDevice);
