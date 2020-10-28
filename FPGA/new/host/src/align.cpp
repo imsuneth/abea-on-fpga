@@ -59,8 +59,6 @@ static void align_cuda(core_t *core, db_t *db);
 // Entry point.
 int main() {
 
-  printf("Host started\n");
-
   if(!init()) {
     printf("init() unsuccessful\n");
     return -1;
@@ -115,8 +113,6 @@ int main() {
 
     }
 
-    printf("before:%d\n", db->n_event_align_pairs);
-
     printf("Calling align_cuda()\n\n");
     align_cuda(core, db);
 
@@ -160,20 +156,20 @@ void align_cuda(core_t *core, db_t *db) {
     double realtime1;
 
     /**cuda pointers*/
-    char* host_read;        //flattened reads sequences
-    ptr_t* host_read_ptr; //index pointer for flattedned "reads"
-    int32_t* host_read_len;
+    char* read_host;        //flattened reads sequences
+    ptr_t* read_ptr_host; //index pointer for flattedned "reads"
+    int32_t* read_len_host;
     int64_t sum_read_len;
-    int32_t* host_n_events;
-    event_t* host_event_table;
-    ptr_t* host_event_ptr;
+    int32_t* n_events_host;
+    event_t* event_table_host;
+    ptr_t* event_ptr_host;
     int64_t sum_n_events;
-    scalings_t* host_scalings;
-    AlignedPair* host_event_align_pairs;
-    int32_t* host_n_event_align_pairs;
-    float * host_bands;
-    uint8_t * host_trace;
-    EventKmerPair* host_band_lower_left;
+    scalings_t* scalings_host;
+    AlignedPair* event_align_pairs_host;
+    int32_t* n_event_align_pairs_host;
+    float * bands_host;
+    uint8_t * trace_host;
+    EventKmerPair* band_lower_left_host;
 
     cl_int cl_n_bam_rec = (cl_int)n_bam_rec;
    // realtime1 = realtime();
@@ -185,7 +181,7 @@ void align_cuda(core_t *core, db_t *db) {
 
     // ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-    ptr_t* read_ptr_host = (ptr_t*)malloc(sizeof(ptr_t) * n_bam_rec);
+    read_ptr_host = (ptr_t*)malloc(sizeof(ptr_t) * n_bam_rec);
     // MALLOC_CHK(read_ptr_host);
 // #endif
     sum_read_len = 0;
@@ -199,7 +195,7 @@ void align_cuda(core_t *core, db_t *db) {
 
     //printf("n_bam_rec %d, sum_read_len %d\n", n_bam_rec, sum_read_len);
     //form the temporary flattened array on host
-    char* read_host = (char*)malloc(sizeof(char) * sum_read_len);
+    read_host = (char*)malloc(sizeof(char) * sum_read_len);
     MALLOC_CHK(read_host);
     for (i = 0; i < n_bam_rec; i++) {
         ptr_t idx = read_ptr_host[i];
@@ -213,9 +209,9 @@ void align_cuda(core_t *core, db_t *db) {
 //     int32_t* n_events_host = core->cuda->n_events_host;
 //     ptr_t* event_ptr_host = core->cuda->event_ptr_host;
 // #else
-    int32_t* n_events_host = (int32_t*)malloc(sizeof(int32_t) * n_bam_rec);
+    n_events_host = (int32_t*)malloc(sizeof(int32_t) * n_bam_rec);
     MALLOC_CHK(n_events_host);
-    ptr_t* event_ptr_host = (ptr_t*)malloc(sizeof(ptr_t) * n_bam_rec);
+    event_ptr_host = (ptr_t*)malloc(sizeof(ptr_t) * n_bam_rec);
     MALLOC_CHK(event_ptr_host);
 // #endif
 
@@ -228,7 +224,7 @@ void align_cuda(core_t *core, db_t *db) {
 
     //event table flatten
     //form the temporary flattened array on host
-    event_t* event_table_host =(event_t*)malloc(sizeof(event_t) * sum_n_events);
+    event_table_host =(event_t*)malloc(sizeof(event_t) * sum_n_events);
     MALLOC_CHK(event_table_host);
     for (i = 0; i < n_bam_rec; i++) {
         ptr_t idx = event_ptr_host[i];
@@ -236,7 +232,7 @@ void align_cuda(core_t *core, db_t *db) {
                sizeof(event_t) * db->et[i].n);
     }
 
-    AlignedPair* event_align_pairs_host =
+    event_align_pairs_host =
         (AlignedPair*)malloc(2 * sum_n_events * sizeof(AlignedPair));
     MALLOC_CHK(event_align_pairs_host);
 
@@ -249,59 +245,59 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
 */
     //cudaMalloc((void**)&read_ptr, n_bam_rec * sizeof(ptr_t));
     if(core->opt.verbosity>1) print_size("read_ptr array",n_bam_rec * sizeof(ptr_t));
-    cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(ptr_t), host_read_ptr, &status);
+    cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(ptr_t), read_ptr_host, &status);
     checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
 
     //cudaMalloc((void**)&read_len, n_bam_rec * sizeof(int32_t));
     if(core->opt.verbosity>1) print_size("read_lens",n_bam_rec * sizeof(int32_t));
-    cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_read_len, &status);
+    cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), read_len_host, &status);
     checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //n_events
     if(core->opt.verbosity>1) print_size("n_events",n_bam_rec * sizeof(int32_t));
     //cudaMalloc((void**)&n_events, n_bam_rec * sizeof(int32_t))
-    cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_n_events, &status);
+    cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(int32_t), n_events_host, &status);
     checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //event ptr
     if(core->opt.verbosity>1) print_size("event ptr",n_bam_rec * sizeof(ptr_t));
     // cudaMalloc((void**)&event_ptr, n_bam_rec * sizeof(ptr_t));
-    cl_mem event_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(ptr_t), host_event_ptr, &status);
+    cl_mem event_ptr = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(ptr_t), event_ptr_host, &status);
     checkError(status, "Failed clCreateBuffer");;
    // CUDA_CHK();
     //scalings : already linear
     if(core->opt.verbosity>1) print_size("Scalings",n_bam_rec * sizeof(scalings_t));
     // cudaMalloc((void**)&scalings, n_bam_rec * sizeof(scalings_t));
-    cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(scalings_t), host_scalings, &status);
+    cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(scalings_t), scalings_host, &status);
     checkError(status, "Failed clCreateBuffer");
     //CUDA_CHK();
     //model : already linear
-    model_t* host_model;
-    cl_mem model = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_KMER * sizeof(model_t), host_model, &status);
+    model_t* model_host;
+    cl_mem model = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_KMER * sizeof(model_t), model_host, &status);
     checkError(status, "Failed clCreateBuffer");;
     //CUDA_CHK();
 
     if(core->opt.verbosity>1) print_size("read array",sum_read_len * sizeof(char));
     // cudaMalloc((void**)&read, sum_read_len * sizeof(char)); //with null char
-    cl_mem read = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(char), host_read, &status);
+    cl_mem read = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, sum_read_len * sizeof(char), read_host, &status);
     // CUDA_CHK();
     checkError(status, "Failed clCreateBuffer");
     if(core->opt.verbosity>1) print_size("event table",sum_n_events * sizeof(event_t));
     // cudaMalloc((void**)&event_table, sum_n_events * sizeof(event_t));
     // CUDA_CHK();
-    cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_events * sizeof(event_t), host_event_table, &status);
+    cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, sum_n_events * sizeof(event_t), event_table_host, &status);
     checkError(status, "Failed clCreateBuffer");
-    model_t* host_model_kmer_cache;
+    model_t* model_kmer_cache_host;
     // cudaMalloc((void**)&model_kmer_cache, sum_read_len * sizeof(model_t));
     // CUDA_CHK();
-    cl_mem model_kmer_cache = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(model_t), host_model_kmer_cache, &status);
+    cl_mem model_kmer_cache = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(model_t), model_kmer_cache_host, &status);
     checkError(status, "Failed clCreateBuffer");
     /**allocate output arrays for cuda**/
     if(core->opt.verbosity>1) print_size("event align pairs",2 * sum_n_events *sizeof(AlignedPair));
     // cudaMalloc((void**)&event_align_pairs,2 * sum_n_events *sizeof(AlignedPair)); //todo : need better huristic
     // CUDA_CHK();
-    cl_mem event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, 2 * sum_n_events *sizeof(AlignedPair), host_event_align_pairs, &status);
+    cl_mem event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, 2 * sum_n_events *sizeof(AlignedPair), event_align_pairs_host, &status);
     checkError(status, "Failed clCreateBuffer");
 // #ifdef CUDA_PRE_MALLOC
 //     n_event_align_pairs=core->cuda->n_event_align_pairs;
@@ -309,7 +305,7 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     if(core->opt.verbosity>1) print_size("n_event_align_pairs",n_bam_rec * sizeof(int32_t));
     // cudaMalloc((void**)&n_event_align_pairs, n_bam_rec * sizeof(int32_t));
     // CUDA_CHK();
-    cl_mem n_event_align_pairs=clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), host_n_event_align_pairs, &status);
+    cl_mem n_event_align_pairs=clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), n_event_align_pairs_host, &status);
     checkError(status, "Failed clCreateBuffer");
 // #endif
     //scratch arrays
@@ -317,12 +313,12 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     if(core->opt.verbosity>1) print_size("bands",sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
     // cudaMalloc((void**)&bands,sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
     // CUDA_CHK();
-    cl_mem bands=clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, host_bands, &status);
+    cl_mem bands=clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, bands_host, &status);
     checkError(status, "Failed clCreateBuffer");
     if(core->opt.verbosity>1) print_size("trace",sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
     // cudaMalloc((void**)&trace, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
     // CUDA_CHK();
-    cl_mem trace =clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, host_trace, &status);
+    cl_mem trace =clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, trace_host, &status);
     checkError(status, "Failed clCreateBuffer");
 
     // cudaMemset(trace,0,sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH); //initialise the trace array to 0
@@ -338,7 +334,7 @@ cudaError_t cudaMalloc 	(void ** devPtr,size_t size)
     if(core->opt.verbosity>1) print_size("band_lower_left",sizeof(EventKmerPair)* sum_n_bands);
     // cudaMalloc((void**)&band_lower_left, sizeof(EventKmerPair)* sum_n_bands);
     // CUDA_CHK();
-    cl_mem band_lower_left=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), host_band_lower_left, &status);
+    cl_mem band_lower_left=clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), band_lower_left_host, &status);
     checkError(status, "Failed clCreateBuffer");
     //core->align_cuda_malloc += (realtime() - realtime1);
 /* cuda mem copys*/
