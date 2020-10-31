@@ -1,7 +1,0 @@
-﻿  ConsoleApplication1.cpp
-  cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 220 (OpenCL 2.2)
-  Generating code
-  Previous IPDB not found, fall back to full compilation.
-  All 263 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
-  Finished generating code
-  ConsoleApplication1.vcxproj -> C:\Users\Pubudu\Desktop\TestOpenCL\ConsoleApplication1\Release\ConsoleApplication1.exe
