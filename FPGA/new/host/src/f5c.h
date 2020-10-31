@@ -23,41 +23,39 @@
 #define F5C_VERSION "0.4"
 
 /* hard coded numbers*/
-#define KMER_SIZE 6 //hard coded for now; todo : change to dynamic?
-#define NUM_KMER 4096   //num k-mers for 6-mers DNA
+#define KMER_SIZE 6         //hard coded for now; todo : change to dynamic?
+#define NUM_KMER 4096       //num k-mers for 6-mers DNA
 #define NUM_KMER_METH 15625 //number k-mers for 6-mers with methylated C
 //#define HAVE_CUDA 1 //if compiled for CUDA or not
 #define ALN_BANDWIDTH 100 // the band size in adaptive_banded_dynamic_alignment
 
 /*flags related to the user specified options (opt_t)*/
-#define F5C_PRINT_RAW 0x001     //print the raw signal to stdio
-#define F5C_SECONDARY_YES 0x002 //consider secondary reads
-#define F5C_SKIP_UNREADABLE 0x004 //Skip unreadable fast5 and continue rather than exiting
-#define F5C_PRINT_EVENTS 0x008 //print the event table
+#define F5C_PRINT_RAW 0x001        //print the raw signal to stdio
+#define F5C_SECONDARY_YES 0x002    //consider secondary reads
+#define F5C_SKIP_UNREADABLE 0x004  //Skip unreadable fast5 and continue rather than exiting
+#define F5C_PRINT_EVENTS 0x008     //print the event table
 #define F5C_PRINT_BANDED_ALN 0x010 //print the event alignment
-#define F5C_PRINT_SCALING 0x020 //print the estimated scalings
-#define F5C_DISABLE_CUDA 0x040 //disable cuda (only when compile for cuda)
+#define F5C_PRINT_SCALING 0x020    //print the estimated scalings
+#define F5C_DISABLE_CUDA 0x040     //disable cuda (only when compile for cuda)
 //#define F5C_DEBUG_BRK 0x080 //break after the first batch //removed can be reused
-#define F5C_SEC_PROF 0x100 //profile section by section (only effective on the CPU mode)
-#define F5C_WR_RAW_DUMP 0x200 //to say if we should write the raw dump of the fast5
-#define F5C_RD_RAW_DUMP 0x400 //to say if we should read the raw dump fof the fast5
-#define F5C_SAM 0x800 // write output in SAM format (eventalign only)
-#define F5C_SCALE_EVENTS 0x1000 // scale events to the model, rather than vice-versa (eventalign only)
-#define F5C_PRINT_RNAME 0x2000 // print read names instead of indexes (eventalign only)
+#define F5C_SEC_PROF 0x100       //profile section by section (only effective on the CPU mode)
+#define F5C_WR_RAW_DUMP 0x200    //to say if we should write the raw dump of the fast5
+#define F5C_RD_RAW_DUMP 0x400    //to say if we should read the raw dump fof the fast5
+#define F5C_SAM 0x800            // write output in SAM format (eventalign only)
+#define F5C_SCALE_EVENTS 0x1000  // scale events to the model, rather than vice-versa (eventalign only)
+#define F5C_PRINT_RNAME 0x2000   // print read names instead of indexes (eventalign only)
 #define F5C_PRINT_SAMPLES 0x4000 //write the raw samples for the event to the tsv output (eventalign only)
-
 
 /*flags for a read status (related to db_t->read_stat_flag)*/
 #define FAILED_CALIBRATION 0x001 //if the calibration failed
-#define FAILED_ALIGNMENT 0x002 //if the alignment failed
-#define FAILED_QUALITY_CHK  0x004 //if the quality check failed
-
+#define FAILED_ALIGNMENT 0x002   //if the alignment failed
+#define FAILED_QUALITY_CHK 0x004 //if the quality check failed
 
 /* other hard coded options */
 
 /*CPU thread scheduling options for multithreading framework for processing*/
-#define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
-#define STEAL_THRESH 1 //stealing threshold for the CPU only sections
+#define WORK_STEAL 1        //simple work stealing enabled or not (no work stealing mean no load balancing)
+#define STEAL_THRESH 1      //stealing threshold for the CPU only sections
 #define STEAL_THRESH_CUDA 0 //stealing threshold for the CPU part in a GPU accelerated workload
 
 //set if input, processing and output are not to be interleaved (serial mode) - useful for debugging
@@ -77,7 +75,7 @@ typedef int int32_t;
 typedef long int64_t;
 // typedef char int8_t;
 
-typedef unsigned long uint64_t ;
+typedef unsigned long uint64_t;
 typedef unsigned long size_t;
 
 typedef int64_t ptr_t;
@@ -85,33 +83,35 @@ typedef int64_t ptr_t;
 /* data structures */
 
 //user options
-typedef struct {
-    int32_t min_mapq;           //minimum mapq
-    const char* model_file;     //name of the model file
-    uint32_t flag;              //flags
-    int32_t batch_size;         //max reads loaded at once: K
-    int64_t batch_size_bases;   //max bases loaded at once: B
+typedef struct
+{
+    int32_t min_mapq;         //minimum mapq
+    const char *model_file;   //name of the model file
+    uint32_t flag;            //flags
+    int32_t batch_size;       //max reads loaded at once: K
+    int64_t batch_size_bases; //max bases loaded at once: B
 
     int32_t num_thread; //t
-    int32_t num_iop; //Used for io performance improvement if > 16 threads
+    int32_t num_iop;    //Used for io performance improvement if > 16 threads
     int8_t verbosity;
     int32_t debug_break;
     int64_t ultra_thresh; //ultra-thresh
 
-    char *region_str; //the region string in format chr:start-end
+    char *region_str;        //the region string in format chr:start-end
     int8_t meth_out_version; //output tsv version for call-methylation
 
     //todo : these are required only for HAVE_CUDA (but need to chnage the meth_main accordingly)
-    int32_t cuda_block_size; //?
-    float cuda_max_readlen; //max-lf
-    float cuda_avg_events_per_kmer; //avg-epk
+    int32_t cuda_block_size;            //?
+    float cuda_max_readlen;             //max-lf
+    float cuda_avg_events_per_kmer;     //avg-epk
     float cuda_max_avg_events_per_kmer; //max-epk
     int32_t cuda_dev_id;
     float cuda_mem_frac;
 } opt_t;
 
 // a single event : adapted from taken from scrappie
-typedef struct {
+typedef struct
+{
     uint64_t start;
     float length; //todo : cant be made int?
     float mean;
@@ -121,16 +121,17 @@ typedef struct {
 } event_t;
 
 // event table : adapted from scrappie
-typedef struct {
+typedef struct
+{
     size_t n;     //todo : int32_t not enough?
     size_t start; //todo : always 0?
     size_t end;   //todo : always equal to n?
-    event_t* event;
+    event_t *event;
 } event_table;
 
-
 //k-mer model
-typedef struct {
+typedef struct
+{
     float level_mean;
     float level_stdv;
 
@@ -147,7 +148,8 @@ typedef struct {
 } model_t;
 
 //scaling parameters for the signal : taken from nanopolish
-typedef struct {
+typedef struct
+{
     // direct parameters that must be set
     float scale;
     float shift;
@@ -165,26 +167,29 @@ typedef struct {
 } scalings_t;
 
 //from nanopolish
-typedef struct {
-        int event_idx;
-        int kmer_idx;
+typedef struct
+{
+    int event_idx;
+    int kmer_idx;
 } EventKmerPair;
 
 //from nanopolish
-typedef struct {
+typedef struct
+{
     int ref_pos;
     int read_pos;
 } AlignedPair;
 
 //from nanopolish
-typedef struct {
+typedef struct
+{
     int32_t start;
     int32_t stop; // inclusive
 } index_pair_t;
 
-
 //from nanopolish
-typedef struct {
+typedef struct
+{
     // ref data
     //char* ref_name;
     char ref_kmer[KMER_SIZE + 1];
@@ -226,7 +231,7 @@ struct ScoredSite
     int strands_scored;
 
     //
-    static bool sort_by_position(const ScoredSite& a, const ScoredSite& b) { return a.start_position < b.start_position; }
+    static bool sort_by_position(const ScoredSite &a, const ScoredSite &b) { return a.start_position < b.start_position; }
 };
 
 //eventalign related
@@ -254,10 +259,11 @@ typedef struct
     double sum_z_score;
     int alignment_edit_distance;
     int reference_span;
-}EventalignSummary;
+} EventalignSummary;
 
-typedef struct {
-    float* rawptr;   // raw signal (float is not the best datatype type though)
+typedef struct
+{
+    float *rawptr; // raw signal (float is not the best datatype type though)
     // hsize_t nsample; // number of samples
 
     //	Information for scaling raw data from ADC values to pA (are these duplicates?)
@@ -282,7 +288,8 @@ typedef struct {
 } fast5_t;
 
 // a data batch (dynamic data based on the reads)
-typedef struct {
+typedef struct
+{
     // region string
     //char* region;
 
@@ -293,34 +300,34 @@ typedef struct {
 
     // fasta cache //can optimise later by caching a common string for all
     // records in the batch
-    char** fasta_cache;
+    char **fasta_cache;
 
     //read sequence //todo : optimise by grabbing it from bam seq. is it possible due to clipping?
-    char** read;
-    int32_t* read_len;
-    int64_t* read_idx; //the index of the read entry in the BAM file
+    char **read;
+    int32_t *read_len;
+    int64_t *read_idx; //the index of the read entry in the BAM file
 
     // fast5 file //should flatten this to reduce mallocs
-    fast5_t** f5;
+    fast5_t **f5;
 
     //event table
-    event_table* et;
+    event_table *et;
 
     //scaling
-    scalings_t* scalings;
+    scalings_t *scalings;
 
     //aligned pairs
-    AlignedPair** event_align_pairs;
-    int32_t* n_event_align_pairs;
+    AlignedPair **event_align_pairs;
+    int32_t *n_event_align_pairs;
 
     //event alignments
-    event_alignment_t** event_alignment;
-    int32_t* n_event_alignment;
-    double* events_per_base; //todo : do we need double?
+    event_alignment_t **event_alignment;
+    int32_t *n_event_alignment;
+    double *events_per_base; //todo : do we need double?
 
-    index_pair_t** base_to_event_map;
+    index_pair_t **base_to_event_map;
 
-    int32_t* read_stat_flag;
+    int32_t *read_stat_flag;
 
     //extreme ugly hack till converted to C
     // An output map from reference positions to scored CpG sites
@@ -328,8 +335,8 @@ typedef struct {
 
     //stats //set by the load_db
     int64_t sum_bases;
-    int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-    int64_t bad_fast5_file; //empty fast5 path returned by readdb, could not open fast5
+    int64_t total_reads;        //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
+    int64_t bad_fast5_file;     //empty fast5 path returned by readdb, could not open fast5
     int64_t ultra_long_skipped; //ultra long reads that are skipped
 
     //eventalign related
@@ -337,7 +344,6 @@ typedef struct {
     //another extremely ugly hack till converted to C
     //TODO : convert this to a C array and get rid of include <vector>
     std::vector<event_alignment_t> **event_alignment_result;
-
 
 } db_t;
 
@@ -372,12 +378,12 @@ typedef struct {
 //     uint64_t max_sum_read_len;
 //     uint64_t max_sum_n_events;
 
-
 //     } cuda_data_t;
 // #endif
 
 //core data structure (mostly static data throughout the program lifetime)
-typedef struct {
+typedef struct
+{
     // bam file related
     // htsFile* m_bam_fh;
     // hts_idx_t* m_bam_idx;
@@ -401,8 +407,8 @@ typedef struct {
     // ReadDB* readbb;
 
     // models
-    model_t* model; //dna model
-    model_t* cpgmodel;
+    model_t *model; //dna model
+    model_t *cpgmodel;
 
     // options
     opt_t opt;
@@ -426,11 +432,10 @@ typedef struct {
     double est_scale_time;
     double meth_time;
 
+    // #ifdef HAVE_CUDA
 
-#ifdef HAVE_CUDA
-
-    //cuda arrays
-    cuda_data_t* cuda;
+    //     //cuda arrays
+    //     cuda_data_t* cuda;
 
     double align_kernel_time;
     double align_pre_kernel_time;
@@ -449,12 +454,12 @@ typedef struct {
     int32_t previous_load;
     int32_t previous_count_load;
 
-#endif
+    // #endif
 
     //stats //set by output_db
     int64_t sum_bases;
-    int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-    int64_t bad_fast5_file; //empty fast5 path returned by readdb, could not open fast5
+    int64_t total_reads;        //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
+    int64_t bad_fast5_file;     //empty fast5 path returned by readdb, could not open fast5
     int64_t ultra_long_skipped; //ultra long reads that are skipped
     int64_t qc_fail_reads;
     int64_t failed_calibration_reads;
@@ -503,7 +508,8 @@ typedef struct {
 // } pthread_arg2_t;
 
 // //return status by the load_db - used for termination when all the data is processed
-typedef struct {
+typedef struct
+{
     int32_t num_reads;
     int64_t num_bases;
 } ret_status_t;
@@ -546,9 +552,4 @@ typedef struct {
 
 /* Function prototypes for other non-major functions are in f5cmisc.h (and f5cmisc.cuh for CUDA)*/
 
-
-
-
 #endif
-
-
