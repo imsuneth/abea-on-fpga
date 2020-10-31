@@ -251,7 +251,7 @@ int32_t align(AlignedPair* out_2, char* sequence, int32_t sequence_len,
     // these indices are updated at every iteration to perform the adaptive banding
     // Only the first two  have their coordinates initialized, the rest are computed adaptively
 
-    struct EventKmerPair {
+    struct __attribute__((packed)) EventKmerPair {
         int event_idx;
         int kmer_idx;
     };

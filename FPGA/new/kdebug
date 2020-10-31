@@ -1,0 +1,7 @@
+aoc -march=emulator -v -board=de5net_a7 device/align.cl -o bin/align.aocx
+aocl linkflags
+make
+env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 gdb --args bin/host 
+
+#aocl report bin/align.aocx profile.mon device/align.cl
+

@@ -135,7 +135,7 @@ int main(){
                 fprintf(stderr,"%d=\t Found conflict in event_align_pairs\n",i);
             }else{
                 fprintf(stderr,"%d=\t Run pass\n",i);
-        }
+            }
         }
 
     }
