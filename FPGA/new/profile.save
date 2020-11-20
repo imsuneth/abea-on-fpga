@@ -1,3 +1,0 @@
-aoc -march=emulator -v -board=de5net_a7 --profile device/align.cl -o bin/align.aocxaocl report bin/align.aocx profile.mon device/align.cl
-make DEBUG=1
-env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 valgrind bin/hos
