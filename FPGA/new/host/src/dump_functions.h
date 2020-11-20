@@ -132,12 +132,15 @@ int check_event_align_pairs(AlignedPair *pair_1, AlignedPair *pair_2, int32_t si
 
         if (pair_1[i].read_pos != pair_2[i].read_pos || pair_1[i].ref_pos != pair_2[i].ref_pos)
         {
-            // fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d)\tFailed\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
+            fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d) Failed\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
             passed--;
-            return 0;
+            // return 0;
         }
-        // fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d)\tPasses\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
+        else
+        {
+            fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d) Passed\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
+        }
     }
-    fprintf(stderr, "%d%\n", passed * 100 / size);
-    return 1;
+    // fprintf(stderr, "%d%\n", passed * 100 / size);
+    // return 1;
 }

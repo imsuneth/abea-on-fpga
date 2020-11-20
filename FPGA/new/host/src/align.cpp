@@ -72,7 +72,7 @@ int main()
 
   load_n_bam_rec(db, align_args_dump_dir);
 
-  // db->n_bam_rec = 5;
+  db->n_bam_rec = 2;
 
   fprintf(stderr, "num of reads:\t%d\n", db->n_bam_rec);
 
@@ -119,7 +119,7 @@ int main()
     }
     else
     {
-      fprintf(stderr, "%d=\toutput: %d, expected: %d\tPassed ", i, n_event_align_pairs, n_event_align_pairs_out);
+      fprintf(stderr, "%d=\toutput: %d (%d)\tPassed\n", i, n_event_align_pairs, n_event_align_pairs_out);
       // if (check_event_align_pairs(db->event_align_pairs[i], db_out->event_align_pairs[i], n_event_align_pairs) == 0)
       // {
       //   // fprintf(stderr, "%d=\t Found conflict in event_align_pairs\n", i);
@@ -130,10 +130,11 @@ int main()
       //   // fprintf(stderr, "%d=\t Run pass\n", i);
       //   fprintf(stderr, "%d=\toutput: %d, expected: %d\tPassed\n", i, n_event_align_pairs, n_event_align_pairs_out);
       // }
-      check_event_align_pairs(db->event_align_pairs[i], db_out->event_align_pairs[i], n_event_align_pairs);
+      // check_event_align_pairs(db->event_align_pairs[i], db_out->event_align_pairs[i], n_event_align_pairs);
     }
-
-    // printf("readpos:%d, refpos:%d\n",db_out->event_align_pairs[0]->read_pos, db_out->event_align_pairs[0]->ref_pos);
+    if (i == 139)
+      check_event_align_pairs(db->event_align_pairs[i], db_out->event_align_pairs[i], n_event_align_pairs);
+    // printf("readpos:%d, refpos:%d\n", db_out->event_align_pairs[0]->read_pos, db_out->event_align_pairs[0]->ref_pos);
   }
   return 0;
 }
