@@ -552,27 +552,27 @@ __kernel void align_kernel_core_2d_shm(
     // printf("IN CORE KERNEL - After loop!\n");
   }
 
-  //   else {
+  else {
 
-  //     int32_t sequence_len = read_len[i];
-  //     int32_t n_event = n_events1[i];
+    int32_t sequence_len = read_len[i];
+    int32_t n_event = n_events1[i];
 
-  //     int32_t n_events = n_event;
-  //     int32_t n_kmers = sequence_len - KMER_SIZE + 1;
+    int32_t n_events = n_event;
+    int32_t n_kmers = sequence_len - KMER_SIZE + 1;
 
-  //     // dp matrix
-  //     int32_t n_rows = n_events + 1;
-  //     int32_t n_cols = n_kmers + 1;
-  //     int32_t n_bands = n_rows + n_cols;
+    // dp matrix
+    int32_t n_rows = n_events + 1;
+    int32_t n_cols = n_kmers + 1;
+    int32_t n_bands = n_rows + n_cols;
 
-  //     barrier(CLK_LOCAL_MEM_FENCE);
-  //     for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
-  //       barrier(CLK_LOCAL_MEM_FENCE);
-  //       barrier(CLK_LOCAL_MEM_FENCE);
-  //       barrier(CLK_LOCAL_MEM_FENCE);
-  //       barrier(CLK_LOCAL_MEM_FENCE);
-  //     }
-  //   }
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
+      barrier(CLK_LOCAL_MEM_FENCE);
+      barrier(CLK_LOCAL_MEM_FENCE);
+      barrier(CLK_LOCAL_MEM_FENCE);
+      barrier(CLK_LOCAL_MEM_FENCE);
+    }
+  }
 }
 
 // //******************************************************************************************************
@@ -858,29 +858,4 @@ __kernel void align_kernel_post(
     // "Max outSize %d\n", outIndex);
     n_event_align_pairs[i] = outIndex;
   }
-}
-
-//>>>>>>>>>>>>>New replacement begin
-outIndex = 0;
-// out.clear();
-// free(out_2);
-// out_2 = NULL;
-//<<<<<<<<<<<<<New replacement over
-}
-
-// free(kmer_ranks);
-// for (size_t i = 0; i < n_bands; i++) {
-//     free(bands[i]);
-//     free(trace[i]);
-// }
-// free(bands);
-// free(trace);
-// free(band_lower_left);
-// fprintf(stderr, "ada\t%s\t%s\t%.2lf\t%zu\t%.2lf\t%d\t%d\t%d\n",
-// read.read_name.substr(0, 6).c_str(), failed ? "FAILED" : "OK",
-// events_per_kmer, sequence.size(), avg_log_emission, curr_event_idx,
-// max_gap, fills); outSize=outIndex; if(outIndex>500000)fprintf(stderr,
-// "Max outSize %d\n", outIndex);
-n_event_align_pairs[i] = outIndex;
-}
 }
