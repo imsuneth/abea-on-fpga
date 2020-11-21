@@ -79,7 +79,7 @@ int main()
   core->opt.verbosity = 2;
 
   load_n_bam_rec(db, align_args_dump_dir);
-  db->n_bam_rec = 10;
+  // db->n_bam_rec = 5;
 
   // core->model = (model_t*)malloc(sizeof(model_t)*db->n_bam_rec);
   posix_memalign((void **)&core->model, AOCL_ALIGNMENT, sizeof(model_t) * NUM_KMER);
@@ -296,7 +296,7 @@ void align_ocl(core_t *core, db_t *db)
 
   //model : already linear
   if (core->opt.verbosity > 1)
-    print_size("Scalings", n_bam_rec * sizeof(scalings_t));
+    print_size("model", NUM_KMER * sizeof(model_t));
   //cudaMalloc((void**)&model, NUM_KMER * sizeof(model_t));
   cl_mem model = clCreateBuffer(context, CL_MEM_READ_WRITE, NUM_KMER * sizeof(model_t), NULL, &status);
   checkError(status, "Failed clCreateBuffer");
@@ -351,6 +351,15 @@ void align_ocl(core_t *core, db_t *db)
   cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
+  //cudaMemset(trace, 0, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH); //initialise the trace array to 0
+  uint8_t zeros[n_bam_rec];
+  for (i = 0; i < n_bam_rec; i++)
+  {
+    zeros[i] = 0;
+  }
+  status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, NULL);
+  checkError(status, "Failed clEnqueueWriteBuffer");
+
   if (core->opt.verbosity > 1)
     print_size("band_lower_left", sizeof(EventKmerPair) * sum_n_bands);
   // cudaMalloc((void**)&band_lower_left, sizeof(EventKmerPair)* sum_n_bands);
@@ -395,6 +404,8 @@ void align_ocl(core_t *core, db_t *db)
   // cudaMemcpy(scalings, db->scalings, sizeof(scalings_t) * n_bam_rec, cudaMemcpyHostToDevice);
   status = clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, NULL);
   checkError(status, "Failed clEnqueueWriteBuffer");
+
+  core->align_cuda_memcpy += (realtime() - realtime1);
 
   realtime1 = realtime();
 
@@ -493,6 +504,9 @@ void align_ocl(core_t *core, db_t *db)
   const size_t grid1[2] = {BLOCK_LEN_BANDWIDTH, (size_t)(db->n_bam_rec + BLOCK_LEN_READS - 1)}; //global
   const size_t block1[2] = {BLOCK_LEN_BANDWIDTH, BLOCK_LEN_READS};                              //local
 
+  // const size_t grid1[3] = {1, 1, 1};
+  // const size_t block1[3] = {1, 1, 1};
+
   if (core->opt.verbosity > 1)
     fprintf(stderr, "grid %zu,%zu, block %zu,%zu\n", grid1[0], grid1[1], block1[0], block1[1]);
 
@@ -504,7 +518,7 @@ void align_ocl(core_t *core, db_t *db)
   // cudaDeviceSynchronize();CUDA_CHK();
   status = clFinish(queue);
   checkError(status, "Failed to finish");
-  printf("\n");
+
   if (core->opt.verbosity > 1)
     fprintf(stderr, "[%s::%.3f*%.2f] align-core kernel done\n", __func__,
             realtime() - realtime1, cputime() / (realtime() - realtime1));

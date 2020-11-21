@@ -18,7 +18,27 @@ void load_n_bam_rec(db_t *db, const char *align_args_dump_dir)
     fclose(fp);
 }
 
-void load_align_arguments(core_t *core, db_t *db, int32_t i, const char *align_args_dump_dir)
+void load_core(core_t *core, const char *align_args_dump_dir)
+{
+    char foldername[40];
+    snprintf(foldername, sizeof(foldername), "%s", align_args_dump_dir);
+
+    char filename[50];
+    FILE *fp;
+    size_t read_count;
+    int32_t read_count2;
+
+    // core->model - models
+    snprintf(filename, sizeof(filename), "%s/%s", foldername, "model.dat");
+    fp = fopen(filename, "r");
+    if (fp == NULL)
+        printf("Can not open %s\n", filename);
+    read_count = fread(core->model, sizeof(model_t), NUM_KMER, fp);
+    assert(read_count == NUM_KMER);
+    fclose(fp);
+}
+
+void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
 {
 
     char foldername[40];
@@ -59,16 +79,6 @@ void load_align_arguments(core_t *core, db_t *db, int32_t i, const char *align_a
     db->et[i].event = (event_t *)malloc(sizeof(event_t) * n_events);
     read_count = fread(db->et[i].event, sizeof(event_t), n_events, fp);
     assert(read_count == n_events);
-    fclose(fp);
-
-    // core->model - models
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "model.dat");
-    fp = fopen(filename, "r");
-    if (fp == NULL)
-        printf("Can not open %s\n", filename);
-    core->model = (model_t *)malloc(sizeof(model_t) * NUM_KMER);
-    read_count = fread(core->model, sizeof(model_t), NUM_KMER, fp);
-    assert(read_count == NUM_KMER);
     fclose(fp);
 
     // db->scalings[i] - scaling
@@ -132,15 +142,12 @@ int check_event_align_pairs(AlignedPair *pair_1, AlignedPair *pair_2, int32_t si
 
         if (pair_1[i].read_pos != pair_2[i].read_pos || pair_1[i].ref_pos != pair_2[i].ref_pos)
         {
-            fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d) Failed\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
+            // fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d)\tFailed\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
             passed--;
             // return 0;
         }
-        else
-        {
-            fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d) Passed\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
-        }
+        // fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d)\tPasses\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
     }
-    // fprintf(stderr, "%d%\n", passed * 100 / size);
+    fprintf(stderr, "%d%\n", passed * 100 / size);
     // return 1;
 }
