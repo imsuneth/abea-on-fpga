@@ -1,0 +1,1 @@
+Compiler Command: aoc -march=emulator -v -board=de5net_a7 device/core.cl -o bin_emu/core.aocx
