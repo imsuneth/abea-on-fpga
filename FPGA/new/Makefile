@@ -50,6 +50,8 @@ else
 CXXFLAGS += -O2
 endif
 
+CXXFLAGS += -std=c++11
+
 # Compiler
 CXX := g++
 
