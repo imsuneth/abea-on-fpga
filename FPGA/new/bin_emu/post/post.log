@@ -1,1 +1,0 @@
-Compiler Command: aoc -march=emulator -v -board=de5net_a7 device/post.cl -o bin_emu/post.aocx
