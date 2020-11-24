@@ -8,7 +8,7 @@
 
 // From f5cmisc.cuh*****************************
 #define ALIGN_KERNEL_FLOAT 1 //(for 2d kernel only)
-// #define WARP_HACK 1 // whether the kernels are  performed in 1D with a warp
+// #define WARP_HACK 1          // whether the kernels are  performed in 1D with a warp
 // hack (effective only  if specific TWODIM_ALIGN is not defined)
 // #define REVERSAL_ON_CPU \
 //   1 // reversal of the backtracked array is performed on the CPU instead of
@@ -18,7 +18,7 @@
 //*********************************************
 
 // todo : can make more efficient using bit encoding
-__global uint32_t get_rank(char base)
+uint32_t get_rank(char base)
 {
     if (base == 'A')
     { // todo: do we neeed simple alpha?
@@ -45,7 +45,7 @@ __global uint32_t get_rank(char base)
 
 // return the lexicographic rank of the kmer amongst all strings of
 // length k for this alphabet
-__global inline uint32_t get_kmer_rank(__global char *str, uint32_t k)
+inline uint32_t get_kmer_rank(__global char *str, uint32_t k)
 {
     // uint32_t p = 1;
     uint32_t r = 0;
@@ -61,7 +61,7 @@ __global inline uint32_t get_kmer_rank(__global char *str, uint32_t k)
 }
 
 // copy a kmer from a reference
-__global inline void kmer_cpy(char *dest, char *src, uint32_t k)
+inline void kmer_cpy(char *dest, char *src, uint32_t k)
 {
     uint32_t i = 0;
     for (i = 0; i < k; i++)
@@ -83,7 +83,7 @@ static inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
     // return 1;
 }
 
-__global inline float
+inline float
 log_probability_match_r9(scalings_t scaling, __global model_t *models,
                          event_table events, int event_idx, uint32_t kmer_rank,
                          uint8_t strand, float sample_rate)
@@ -155,16 +155,16 @@ log_probability_match_r9(scalings_t scaling, __global model_t *models,
 #define epsilon 1e-10f
 #endif
 
-__global inline EventKmerPair move_down(EventKmerPair curr_band)
-{
-    EventKmerPair ret = {curr_band.event_idx + 1, curr_band.kmer_idx};
-    return ret;
-}
-__global inline EventKmerPair move_right(EventKmerPair curr_band)
-{
-    EventKmerPair ret = {curr_band.event_idx, curr_band.kmer_idx + 1};
-    return ret;
-}
+// __global inline EventKmerPair move_down(EventKmerPair curr_band)
+// {
+//     EventKmerPair ret = {curr_band.event_idx + 1, curr_band.kmer_idx};
+//     return ret;
+// }
+// __global inline EventKmerPair move_right(EventKmerPair curr_band)
+// {
+//     EventKmerPair ret = {curr_band.event_idx, curr_band.kmer_idx + 1};
+//     return ret;
+// }
 
 #define PROFILE 1
 
