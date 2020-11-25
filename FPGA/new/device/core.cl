@@ -24,8 +24,8 @@ align_kernel_core_2d_shm(
 
   // printf("i:%lu, offset:%lu\n", i, offset);
 
-  if (offset == 0)
-    printf("Completion:%lu\n", i);
+  // if (offset == 0)
+  //   printf("Completion:%lu\n", i);
 
   if (offset == 0) {
   }
