@@ -1,1 +1,2 @@
-aoc -v -g -report -board=de5net_a7 device/$1.cl -o $2/$1.cl
+aoc -v -report -board=de5net_a7 device/$1.cl -o $2/$1.cl
+
