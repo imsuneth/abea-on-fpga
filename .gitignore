@@ -1,6 +1,5 @@
 Code/align_args_dump
 Code/.vscode
-FPGA/new/bin/*
-FPGA/new/bin_emu/*
-!FPGA/new/bin/dump_test
-!FPGA/new/bin_emu/dump_test
+FPGA/new/bins/*
+!FPGA/new/bins/dump_small
+!FPGA/new/bins/dump_large

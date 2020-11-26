@@ -1,9 +1,9 @@
 void load_n_bam_rec(db_t *db, const char *align_args_dump_dir)
 {
-    char foldername[40];
+    char foldername[500];
     snprintf(foldername, sizeof(foldername), "%s", align_args_dump_dir);
 
-    char filename[50];
+    char filename[500];
     FILE *fp;
     size_t read_count;
     int32_t read_count2;
@@ -20,10 +20,10 @@ void load_n_bam_rec(db_t *db, const char *align_args_dump_dir)
 
 void load_core(core_t *core, const char *align_args_dump_dir)
 {
-    char foldername[40];
+    char foldername[500];
     snprintf(foldername, sizeof(foldername), "%s", align_args_dump_dir);
 
-    char filename[50];
+    char filename[500];
     FILE *fp;
     size_t read_count;
     int32_t read_count2;
@@ -41,10 +41,10 @@ void load_core(core_t *core, const char *align_args_dump_dir)
 void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
 {
 
-    char foldername[40];
+    char foldername[500];
     snprintf(foldername, sizeof(foldername), "%s/%d", align_args_dump_dir, i);
 
-    char filename[50];
+    char filename[500];
     FILE *fp;
     size_t read_count;
     int32_t read_count2;
@@ -104,10 +104,10 @@ void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
 void load_align_outputs(db_t *db, int32_t i, const char *align_args_dump_dir)
 {
 
-    char foldername[40];
+    char foldername[500];
     snprintf(foldername, sizeof(foldername), "%s/%d", align_args_dump_dir, i);
 
-    char filename[50];
+    char filename[500];
     FILE *fp;
     size_t read_count;
     int32_t read_count2;

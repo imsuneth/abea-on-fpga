@@ -57,7 +57,7 @@ static void display_device_info(cl_device_id device);
 static void align_ocl(core_t *core, db_t *db);
 
 // Entry point.
-int main()
+int main(int argc, char *argv[])
 {
 
   if (!init())
@@ -69,7 +69,7 @@ int main()
   fprintf(stderr, "init() successful\n\n");
 
   // Load dump files
-  const char *align_args_dump_dir = "dump_test";
+  const char *align_args_dump_dir = argv[1];
 
   db_t *db;
   db = (db_t *)malloc(sizeof(db_t));
@@ -170,6 +170,14 @@ void align_ocl(core_t *core, db_t *db)
   float *bands_host;
   uint8_t *trace_host;
   EventKmerPair *band_lower_left_host;
+
+  /*time measurements*/
+  cl_event event_write_buffers;
+  cl_event event_read_buffers;
+  cl_double g_NDRangePureExecTimeMs;
+  cl_double host_to_device_transfer_time = 0;
+  cl_double device_to_host_transfer_time = 0;
+  cl_ulong start = 0, end = 0;
 
   realtime1 = realtime();
 
@@ -357,8 +365,11 @@ void align_ocl(core_t *core, db_t *db)
   {
     zeros[i] = 0;
   }
-  status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
   if (core->opt.verbosity > 1)
     print_size("band_lower_left", sizeof(EventKmerPair) * sum_n_bands);
@@ -370,41 +381,66 @@ void align_ocl(core_t *core, db_t *db)
 
   /* cuda mem copys*/
   realtime1 = realtime();
+
   //cudaMemcpy(read_ptr, read_ptr_host, n_bam_rec * sizeof(ptr_t),cudaMemcpyHostToDevice);
-  status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
   //cudaMemcpy(read, read_host, sum_read_len * sizeof(char), cudaMemcpyHostToDevice);
-  status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0, sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0, sum_read_len * sizeof(char), read_host, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
   //read length : already linear hence direct copy
   // cudaMemcpy(read_len, db->read_len, n_bam_rec * sizeof(int32_t),cudaMemcpyHostToDevice);
-  status = clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), db->read_len, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), db->read_len, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
   // cudaMemcpy(n_events, n_events_host, n_bam_rec * sizeof(int32_t),cudaMemcpyHostToDevice);
-  status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
   // cudaMemcpy(event_ptr, event_ptr_host, n_bam_rec * sizeof(ptr_t),cudaMemcpyHostToDevice);
-  status = clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
   // cudaMemcpy(event_table, event_table_host, sizeof(event_t) * sum_n_events,cudaMemcpyHostToDevice);
-  status = clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
   //model : already linear //move to cuda_init
   // cudaMemcpy(model, core->model, NUM_KMER * sizeof(model_t), cudaMemcpyHostToDevice);
-  status = clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
-
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
   //can be interleaved
   // cudaMemcpy(scalings, db->scalings, sizeof(scalings_t) * n_bam_rec, cudaMemcpyHostToDevice);
-  status = clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, &event_write_buffers);
   checkError(status, "Failed clEnqueueWriteBuffer");
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_write_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
+  fprintf(stderr, "Data transfer time %.3f ms \n", host_to_device_transfer_time);
   core->align_cuda_memcpy += (realtime() - realtime1);
 
   realtime1 = realtime();
@@ -456,14 +492,21 @@ void align_ocl(core_t *core, db_t *db)
   //       read_len, read_ptr, n_events,
   //       event_ptr, model, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left);
   printf("Calling Pre kernel\n");
-  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, NULL, gridpre, blockpre, 0, NULL, NULL);
-
-  //   cudaDeviceSynchronize();CUDA_CHK();
+  cl_event event_pre;
+  cl_event event_core;
+  cl_event event_post;
+  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, NULL, gridpre, blockpre, 0, NULL, &event_pre);
   status = clFinish(queue);
   checkError(status, "Failed to finish");
+  //********** Pre-Kernel execution time *************************
 
-  if (core->opt.verbosity > 1)
-    fprintf(stderr, "[%s::%.3f*%.2f] align-pre kernel done\n", __func__, realtime() - realtime1, cputime() / (realtime() - realtime1));
+  clGetEventProfilingInfo(event_pre, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_pre, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  g_NDRangePureExecTimeMs = (cl_double)(end - start) * (cl_double)(1e-06);
+  fprintf(stderr, "Pre-kernel execution time %.3f ms\n", g_NDRangePureExecTimeMs);
+
+  // if (core->opt.verbosity > 1)
+  //   fprintf(stderr, "[%s::%.3f*%.2f] align-pre kernel done\n", __func__, realtime() - realtime1, cputime() / (realtime() - realtime1));
   core->align_kernel_time += (realtime() - realtime1);
   core->align_pre_kernel_time += (realtime() - realtime1);
 
@@ -513,15 +556,21 @@ void align_ocl(core_t *core, db_t *db)
   printf("Calling core kernel\n");
   //align_kernel_core_2d_shm<<<grid1, block1>>>(read_len, read_ptr, event_table, n_events,event_ptr, scalings, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left );
 
-  clEnqueueNDRangeKernel(queue, align_kernel_core_2d_shm, 2, NULL, grid1, block1, 0, NULL, NULL);
-
-  // cudaDeviceSynchronize();CUDA_CHK();
+  clEnqueueNDRangeKernel(queue, align_kernel_core_2d_shm, 2, NULL, grid1, block1, 0, NULL, &event_core);
   status = clFinish(queue);
   checkError(status, "Failed to finish");
+  //********** Core-Kernel execution time *************************
 
-  if (core->opt.verbosity > 1)
-    fprintf(stderr, "[%s::%.3f*%.2f] align-core kernel done\n", __func__,
-            realtime() - realtime1, cputime() / (realtime() - realtime1));
+  clGetEventProfilingInfo(event_core, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_core, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  //END-START gives you hints on kind of “pure HW execution time”
+  //the resolution of the events is 1e-09 sec
+  g_NDRangePureExecTimeMs = (cl_double)(end - start) * (cl_double)(1e-06);
+  fprintf(stderr, "Core-kernel execution time %.3f ms\n", g_NDRangePureExecTimeMs);
+
+  // if (core->opt.verbosity > 1)
+  //   fprintf(stderr, "[%s::%.3f*%.2f] align-core kernel done\n", __func__,
+  //           realtime() - realtime1, cputime() / (realtime() - realtime1));
   core->align_kernel_time += (realtime() - realtime1);
   core->align_core_kernel_time += (realtime() - realtime1);
   realtime1 = realtime();
@@ -577,7 +626,7 @@ void align_ocl(core_t *core, db_t *db)
   //     read_len, read_ptr, event_table, n_events,
   //     event_ptr,scalings, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left );
   printf("Calling post kernel. 'WARP_HACK' not set\n");
-  clEnqueueNDRangeKernel(queue, align_kernel_post, 1, NULL, gridpost, blockpost, 0, NULL, NULL);
+  clEnqueueNDRangeKernel(queue, align_kernel_post, 1, NULL, gridpost, blockpost, 0, NULL, &event_post);
 #else
   assert(BLOCK_LEN >= 32);
   //dim3 grid1post((db->n_bam_rec + (BLOCK_LEN/32) - 1) / (BLOCK_LEN/32));
@@ -589,28 +638,46 @@ void align_ocl(core_t *core, db_t *db)
   //     read_len, read_ptr, event_table, n_events,
   //     event_ptr, scalings, n_bam_rec, model_kmer_cache,bands,trace,band_lower_left );
   printf("Calling post kernel. 'WARP_HACK' set\n");
-  clEnqueueNDRangeKernel(queue, align_kernel_post, 2, NULL, gridpost, blockpost, 0, NULL, NULL);
+  clEnqueueNDRangeKernel(queue, align_kernel_post, 2, NULL, gridpost, blockpost, 0, NULL, &event_post);
 
 #endif
   //cudaDeviceSynchronize();CUDA_CHK();
   status = clFinish(queue);
   checkError(status, "Failed to finish");
-  if (core->opt.verbosity > 1)
-    fprintf(stderr, "[%s::%.3f*%.2f] align-post kernel done\n", __func__,
-            realtime() - realtime1, cputime() / (realtime() - realtime1));
+  //********** Post-Kernel execution time *************************
+
+  clGetEventProfilingInfo(event_post, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_post, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  //END-START gives you hints on kind of “pure HW execution time”
+  //the resolution of the events is 1e-09 sec
+  g_NDRangePureExecTimeMs = (cl_double)(end - start) * (cl_double)(1e-06);
+  fprintf(stderr, "Post-kernel execution time %.3f ms\n", g_NDRangePureExecTimeMs);
+
+  // if (core->opt.verbosity > 1)
+  //   fprintf(stderr, "[%s::%.3f*%.2f] align-post kernel done\n", __func__,
+  //           realtime() - realtime1, cputime() / (realtime() - realtime1));
   core->align_kernel_time += (realtime() - realtime1);
   core->align_post_kernel_time += (realtime() - realtime1);
 
   realtime1 = realtime();
 
   //cudaMemcpy(db->n_event_align_pairs, n_event_align_pairs,n_bam_rec * sizeof(int32_t), cudaMemcpyDeviceToHost);
-  status = clEnqueueReadBuffer(queue, n_event_align_pairs, CL_TRUE, 0, sizeof(int32_t) * n_bam_rec, db->n_event_align_pairs, 0, NULL, NULL);
+  status = clEnqueueReadBuffer(queue, n_event_align_pairs, CL_TRUE, 0, sizeof(int32_t) * n_bam_rec, db->n_event_align_pairs, 0, NULL, &event_read_buffers);
   // CUDA_CHK();
   checkError(status, "clEnqueueReadBuffer");
+  clGetEventProfilingInfo(event_read_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_read_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  device_to_host_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
 
   //cudaMemcpy(event_align_pairs_host, event_align_pairs,2 * sum_n_events * sizeof(AlignedPair), cudaMemcpyDeviceToHost);
-  status = clEnqueueReadBuffer(queue, event_align_pairs, CL_TRUE, 0, 2 * sum_n_events * sizeof(AlignedPair), event_align_pairs_host, 0, NULL, NULL);
+  status = clEnqueueReadBuffer(queue, event_align_pairs, CL_TRUE, 0, 2 * sum_n_events * sizeof(AlignedPair), event_align_pairs_host, 0, NULL, &event_read_buffers);
   checkError(status, "clEnqueueReadBuffer");
+  clGetEventProfilingInfo(event_read_buffers, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event_read_buffers, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  device_to_host_transfer_time += (cl_double)(end - start) * (cl_double)(1e-06);
+
+  fprintf(stderr, "Data transfer time DEVICE to HOST %.3f ms \n", device_to_host_transfer_time);
+
   core->align_cuda_memcpy += (realtime() - realtime1);
 
   realtime1 = realtime();

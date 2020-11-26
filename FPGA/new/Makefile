@@ -57,7 +57,7 @@ CXX := g++
 
 # Target
 TARGET := host
-TARGET_DIR := bin
+TARGET_DIR := $(BIN)
 
 # Directories
 INC_DIRS := ../common/inc
