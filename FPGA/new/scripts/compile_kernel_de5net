@@ -1,2 +1,5 @@
-aoc -v -report -board=de5net_a7 device/$1.cl -o $2/$1.cl
+KERNEL=$1
+BIN=$2
+
+aoc -veport -board=de5net_a7 device/$1.cKERNEL -o $2/$BIN.cKERNELaocx
 

@@ -1,6 +1,8 @@
 FILE=$1
-aoc -v -report -board=pac_a10 device/$FILE.cl -o bin/$FILE.aocx
-mv bin/$FILE.aocx bin/$FILE.tmp.aocx
-printf 'Y\nY\n' | $AOCL_BOARD_PACKAGE_ROOT/linux64/libexec/sign_aocx.sh -H openssl_manager -i bin/$FILE.tmp.aocx -r NULL -k NULL -o bin/$FILE.aocx
-rm bin/$FILE.tmp.aocx
+BIN=bins/bin
+
+aoc -v -report -board=pac_a10 device/$FILE.cl -o $BIN/$FILE.aocx
+mv $BIN/$FILE.aocx $BIN/$FILE.tmp.aocx
+printf 'Y\nY\n' | $AOCL_BOARD_PACKAGE_ROOT/linux64/libexec/sign_aocx.sh -H openssl_manager -i $BIN/$FILE.tmp.aocx -r NULL -k NULL -o $BIN/$FILE.aocx
+rm $BIN/$FILE.tmp.aocx
 
