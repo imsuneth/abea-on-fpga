@@ -1,0 +1,8 @@
+aoc -march=emulator -v -board=de5net_a7 device/pre.cl -o bin_emu/pre.aocx
+aoc -march=emulator -v -board=de5net_a7 device/core.cl -o bin_emu/core.aocx
+aoc -march=emulator -v -board=de5net_a7 device/post.cl -o bin_emu/post.aocx
+make clean
+make
+rm -f bin_emu/host
+cp bin/host bin_emu/host
+env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 bin_emu/host
