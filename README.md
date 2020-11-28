@@ -20,6 +20,7 @@ ABEA is one of the most time-consuming steps when analyzing raw nanopore data. A
 A custom hardware design of the ABEA algorithm done with hardware-software co-design principles has the potential to achieve superior performance.OpenCL can be used for writing programs at high-level languages on FPGA which are then converted by the underlying layers to run with the support of board support package (BSP) in order to accelerate the ABEA Algorithm on it.
 
 ## Usage
+
 #### Compile individual kernel for de5net
 ```
 ./scripts/compile_kernel_de5net pre bins/bin

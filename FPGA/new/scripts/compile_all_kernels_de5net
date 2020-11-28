@@ -1,3 +1,5 @@
-./scripts/compile_kernel_de5net pre $1
-./scripts/compile_kernel_de5net core $1
-./scripts/compile_kernel_de5net post $1
+BIN=$1
+
+./scripts/compile_kernel_de5net pre $BIN
+./scripts/compile_kernel_de5net core $BIN
+./scripts/compile_kernel_de5net post $BIN
