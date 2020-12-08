@@ -7,7 +7,7 @@
 //#define DEBUG_ADAPTIVE 1
 
 // From f5cmisc.cuh*****************************
-#define ALIGN_KERNEL_FLOAT 1 //(for 2d kernel only)
+// #define ALIGN_KERNEL_FLOAT 1 //(for 2d kernel only)
 // #define WARP_HACK 1          // whether the kernels are  performed in 1D with a warp
 // hack (effective only  if specific TWODIM_ALIGN is not defined)
 // #define REVERSAL_ON_CPU \

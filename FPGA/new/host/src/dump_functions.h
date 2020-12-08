@@ -1,15 +1,33 @@
-void load_n_bam_rec(db_t *db, const char *align_args_dump_dir)
+int32_t load_no_of_batches(const char *dump_dir)
 {
-    char foldername[500];
-    snprintf(foldername, sizeof(foldername), "%s", align_args_dump_dir);
-
-    char filename[500];
+    int32_t no_of_batches;
+    char filename[100];
     FILE *fp;
     size_t read_count;
-    int32_t read_count2;
+    // no_of_batches
+    snprintf(filename, sizeof(filename), "%s/%s", dump_dir,
+             "no_of_batches.dat");
+    fp = fopen(filename, "r");
+    if (fp == NULL)
+    {
+        printf("Can not open %s\n", filename);
+        exit(1);
+    }
+    read_count = fread(&(no_of_batches), sizeof(int32_t), 1, fp);
+    assert(read_count == 1);
+    fclose(fp);
+
+    return no_of_batches;
+}
+void load_n_bam_rec(db_t *db, const char *batch_dir)
+{
+
+    char filename[100];
+    FILE *fp;
+    size_t read_count;
 
     // db->n_bam_rec
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "n_bam_rec.dat");
+    snprintf(filename, sizeof(filename), "%s/%s", batch_dir, "n_bam_rec.dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -18,18 +36,15 @@ void load_n_bam_rec(db_t *db, const char *align_args_dump_dir)
     fclose(fp);
 }
 
-void load_core(core_t *core, const char *align_args_dump_dir)
+void load_core(core_t *core, const char *batch_dir)
 {
-    char foldername[500];
-    snprintf(foldername, sizeof(foldername), "%s", align_args_dump_dir);
 
-    char filename[500];
+    char filename[100];
     FILE *fp;
     size_t read_count;
-    int32_t read_count2;
 
     // core->model - models
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "model.dat");
+    snprintf(filename, sizeof(filename), "%s/%s", batch_dir, "model.dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -38,19 +53,19 @@ void load_core(core_t *core, const char *align_args_dump_dir)
     fclose(fp);
 }
 
-void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
+void load_read_inputs(db_t *db, int32_t i, const char *batch_dir)
 {
 
-    char foldername[500];
-    snprintf(foldername, sizeof(foldername), "%s/%d", align_args_dump_dir, i);
+    char read_dir[150];
+    snprintf(read_dir, sizeof(read_dir), "%s/%ld", batch_dir, i);
 
-    char filename[500];
+    char filename[200];
     FILE *fp;
     size_t read_count;
     int32_t read_count2;
 
     // db->read_len[i] - sequence_len
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "read_len[i].dat");
+    snprintf(filename, sizeof(filename), "%s/%s", read_dir, "read_len[i].dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -59,7 +74,7 @@ void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
     fclose(fp);
 
     // db->read[i] - sequence
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "read[i].dat");
+    snprintf(filename, sizeof(filename), "%s/%s", read_dir, "read[i].dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -70,7 +85,7 @@ void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
     fclose(fp);
 
     // db->et[i] - events
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "et[i].dat");
+    snprintf(filename, sizeof(filename), "%s/%s", read_dir, "et[i].dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -82,7 +97,7 @@ void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
     fclose(fp);
 
     // db->scalings[i] - scaling
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "scalings[i].dat");
+    snprintf(filename, sizeof(filename), "%s/%s", read_dir, "scalings[i].dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -91,7 +106,7 @@ void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
     fclose(fp);
 
     // db->f5[i]->sample_rate - sample_rate
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "f5[i].sample_rate.dat");
+    snprintf(filename, sizeof(filename), "%s/%s", read_dir, "f5[i].sample_rate.dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -101,19 +116,19 @@ void load_align_arguments(db_t *db, int32_t i, const char *align_args_dump_dir)
     fclose(fp);
 }
 
-void load_align_outputs(db_t *db, int32_t i, const char *align_args_dump_dir)
+void load_read_outputs(db_t *db, int32_t i, const char *batch_dir)
 {
 
-    char foldername[500];
-    snprintf(foldername, sizeof(foldername), "%s/%d", align_args_dump_dir, i);
+    char read_dir[150];
+    snprintf(read_dir, sizeof(read_dir), "%s/%ld", batch_dir, i);
 
-    char filename[500];
+    char filename[200];
     FILE *fp;
     size_t read_count;
     int32_t read_count2;
 
     // db->n_event_align_pairs[i]
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "n_event_align_pairs[i].dat");
+    snprintf(filename, sizeof(filename), "%s/%s", read_dir, "n_event_align_pairs[i].dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -122,7 +137,7 @@ void load_align_outputs(db_t *db, int32_t i, const char *align_args_dump_dir)
     fclose(fp);
 
     // db->event_align_pairs - out_2
-    snprintf(filename, sizeof(filename), "%s/%s", foldername, "event_align_pairs.dat");
+    snprintf(filename, sizeof(filename), "%s/%s", read_dir, "event_align_pairs.dat");
     fp = fopen(filename, "r");
     if (fp == NULL)
         printf("Can not open %s\n", filename);
@@ -148,6 +163,15 @@ int check_event_align_pairs(AlignedPair *pair_1, AlignedPair *pair_2, int32_t si
         }
         // fprintf(stderr, "read_pos:%d (%d), ref_pos:%d (%d)\tPasses\n", pair_1[i].read_pos, pair_2[i].read_pos, pair_1[i].ref_pos, pair_2[i].ref_pos);
     }
-    fprintf(stderr, "%d%\n", passed * 100 / size);
+
+    if (size == 0)
+    {
+        fprintf(stderr, "INF%");
+    }
+    else
+    {
+        fprintf(stderr, "%d%", passed * 100 / size);
+    }
+
     // return 1;
 }
