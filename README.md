@@ -45,7 +45,7 @@ make BIN=bins/bin CPP=host/<HOST.cpp>
 ./bins/bin/host /path to <dumped_dataset>
 ```
 
-#### Example on de5-net 
+#### Example 
 ```
 make BIN=bins/bin CPP=host/align_3k.cpp
 ./bins/bin/host ../dumped_dataset
