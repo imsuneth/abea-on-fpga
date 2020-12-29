@@ -20,7 +20,7 @@
 //*********************************************
 
 // todo : can make more efficient using bit encoding
-inline uint32_t get_rank(char base) {
+inline __global uint32_t get_rank(char base) {
   if (base == 'A') { // todo: do we neeed simple alpha?
     return 0;
   } else if (base == 'C') {
@@ -37,7 +37,7 @@ inline uint32_t get_rank(char base) {
 
 // return the lexicographic rank of the kmer amongst all strings of
 // length k for this alphabet
-inline uint32_t get_kmer_rank(__global char *str, uint32_t k) {
+inline __global uint32_t get_kmer_rank(__global char *str, uint32_t k) {
   // uint32_t p = 1;
   uint32_t r = 0;
 
@@ -51,7 +51,7 @@ inline uint32_t get_kmer_rank(__global char *str, uint32_t k) {
 }
 
 // copy a kmer from a reference
-inline void kmer_cpy(char *dest, char *src, uint32_t k) {
+inline __global void kmer_cpy(char *dest, char *src, uint32_t k) {
   uint32_t i = 0;
   for (i = 0; i < k; i++) {
     dest[i] = src[i];
@@ -61,8 +61,8 @@ inline void kmer_cpy(char *dest, char *src, uint32_t k) {
 
 #define log_inv_sqrt_2pi -0.918938f // Natural logarithm
 
-inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
-                            float gp_log_stdv) {
+inline __global float log_normal_pdf(float x, float gp_mean, float gp_stdv,
+                                     float gp_log_stdv) {
   /*INCOMPLETE*/
   // float log_inv_sqrt_2pi = -0.918938f; // Natural logarithm
   float a = (x - gp_mean) / gp_stdv;
@@ -70,9 +70,10 @@ inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
   // return 1;
 }
 
-inline float log_probability_match_r9(scalings_t scaling,
-                                      __global model_t *models, event1_t *event,
-                                      int event_idx, uint32_t kmer_rank) {
+inline __global float log_probability_match_r9(scalings_t scaling,
+                                               __global model_t *models,
+                                               event1_t *event, int event_idx,
+                                               uint32_t kmer_rank) {
   // event level mean, scaled with the drift value
   // strand = 0;
 #ifdef DEBUG_ADAPTIVE
@@ -142,28 +143,42 @@ inline float log_probability_match_r9(scalings_t scaling,
 #define epsilon 1e-10f
 #endif
 
-inline EventKmerPair move_down(EventKmerPair curr_band) {
+inline __global EventKmerPair move_down(EventKmerPair curr_band) {
   EventKmerPair ret = {curr_band.event_idx + 1, curr_band.kmer_idx};
   return ret;
 }
-inline EventKmerPair move_right(EventKmerPair curr_band) {
+inline __global EventKmerPair move_right(EventKmerPair curr_band) {
   EventKmerPair ret = {curr_band.event_idx, curr_band.kmer_idx + 1};
   return ret;
 }
+
+#define PROFILE 1
+
+#define band_event_to_offset_shm(bi, ei)                                       \
+  band_lower_left_shm[bi].event_idx - (ei)
+#define band_kmer_to_offset_shm(bi, ki) (ki) - band_lower_left_shm[bi].kmer_idx
+
+#define event_at_offset_shm(bi, offset)                                        \
+  band_lower_left_shm[(bi)].event_idx - (offset)
+#define kmer_at_offset_shm(bi, offset)                                         \
+  band_lower_left_shm[(bi)].kmer_idx + (offset)
+
+#define BAND_ARRAY_SHM(r, c) (bands_shm[(r)][(c)])
 
 /************** Kernels with 2D thread models **************/
 
 //******************************************************************************************************
 /*pre kernel*/
 //******************************************************************************************************
-__attribute__((reqd_work_group_size(128, 1, 1))) __kernel void
-align_kernel_pre_2d(
+__attribute__((reqd_work_group_size(128, 1, 1))) __kernel void align_pre_core(
     __global char *restrict read, __global int32_t *restrict read_len,
-    __global ptr_t *restrict read_ptr, __global int32_t *restrict n_events,
+    __global ptr_t *restrict read_ptr, __global int32_t *restrict n_events1,
     __global ptr_t *restrict event_ptr, __global model_t *restrict models,
     int32_t n_bam_rec, __global model_t *restrict model_kmer_caches,
     __global float *restrict bands1, __global uint8_t *restrict trace1,
-    __global EventKmerPair *restrict band_lower_left1) {
+    __global EventKmerPair *restrict band_lower_left1,
+    __global event1_t *restrict event_table,
+    __global scalings_t *restrict scalings) {
   //   printf("Kernel called\n");
   // CUDA
   // int i = blockDim.y * blockIdx.y + threadIdx.y;
@@ -262,48 +277,9 @@ align_kernel_pre_2d(
 #endif
     }
   }
-}
 
-#define PROFILE 1
-
-#define band_event_to_offset_shm(bi, ei)                                       \
-  band_lower_left_shm[bi].event_idx - (ei)
-#define band_kmer_to_offset_shm(bi, ki) (ki) - band_lower_left_shm[bi].kmer_idx
-
-#define event_at_offset_shm(bi, offset)                                        \
-  band_lower_left_shm[(bi)].event_idx - (offset)
-#define kmer_at_offset_shm(bi, offset)                                         \
-  band_lower_left_shm[(bi)].kmer_idx + (offset)
-
-#define BAND_ARRAY_SHM(r, c) (bands_shm[(r)][(c)])
-
-//******************************************************************************************************
-/*core kernel*/
-//******************************************************************************************************
-__attribute__((num_compute_units(4)))
-__attribute__((reqd_work_group_size(128, 1, 1))) __kernel void
-align_kernel_core_2d_shm(
-    __global int32_t *restrict read_len, __global ptr_t *restrict read_ptr,
-    __global event1_t *restrict event_table, // There is a built-in event_t.
-                                             // Therefore, renamed as event1_t
-    __global int32_t *restrict n_events1, __global ptr_t *restrict event_ptr,
-    __global scalings_t *restrict scalings, int32_t n_bam_rec,
-    __global model_t *restrict model_kmer_caches, __global float *restrict band,
-    __global uint8_t *restrict traces,
-    __global EventKmerPair *restrict band_lower_lefts) {
-
-  // printf("IN CORE KERNEL!\n");
-  // CUDA
-  // int i = blockDim.y * blockIdx.y + threadIdx.y;
-  // int offset=blockIdx.x*blockDim.x+threadIdx.x;
-
-  size_t i = get_global_id(1);
-  size_t offset = get_global_id(0);
-
-  // printf("i:%lu, offset:%lu\n", i, offset);
-
-  // if (offset == 0)
-  //   printf("Completion:%lu\n", i);
+  //********CORE*****************//
+  barrier(CLK_GLOBAL_MEM_FENCE);
 
   if (offset == 0) {
   }
