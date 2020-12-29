@@ -42,7 +42,7 @@ aoc -report -board=de5net_a7 device/KERNEL.cl -o bins/bin/KERNEL.aocx -profile
 ```
 
 make BIN=bins/bin CPP=host/<HOST.cpp>
-./bins/bin/host /path to <dumped_dataset>
+./bins/bin/host /path_to_<dumped_dataset>
 ```
 
 #### Example 
