@@ -47,7 +47,6 @@ copy dumped_dataset to abea-on-fpga/FPGA/new/bins/
 #### run host program linking the dataset
 ```
 make BIN=bins/bin
-
 ./bins/bin/host ../dumped_dataset
 ```
 
