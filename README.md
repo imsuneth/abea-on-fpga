@@ -28,24 +28,24 @@ copy dumped_dataset to abea-on-fpga/FPGA/new/bins/
 
 ```
 
-<!-- #### Compile individual kernel for de5net
-```
-./scripts/compile_kernel_de5net pre bins/bin
-``` -->
-
 #### compile kernels 
 ```
-
 aoc -report -board=<BOARD NAME> device/<KERNEL.cl> -o bins/bin/<KERNEL.aocx> -profile
-
 ```
 
-<!-- #### compile on arria10
+#### Example on de5-net 
 ```
-./scripts/compile_all_kernels_arria10 
+aoc -report -board=de5net_a7 device/KERNEL.cl -o bins/bin/KERNEL.aocx -profile
+```
 
-``` -->
-#### run host program linking the dataset
+#### run the host program linking the dataset
+```
+
+make BIN=bins/bin CPP=host/<HOST.cpp>
+./bins/bin/host /path to <dumped_dataset>
+```
+
+#### Example on de5-net 
 ```
 make BIN=bins/bin CPP=host/align_3k.cpp
 ./bins/bin/host ../dumped_dataset
