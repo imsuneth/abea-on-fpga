@@ -8,6 +8,6 @@ rm -rf bin/*
 ./scripts/compile_kernel_arria10 align || exit 1
 # ./scripts/compile_kernel_arria10 core  || exit 1
 # ./scripts/compile_kernel_arria10 post || exit 1
-make || exit 1
-bin/host
+# make || exit 1
+# bin/host
 
