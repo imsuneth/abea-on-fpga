@@ -52,4 +52,6 @@ make BIN=bins/bin
 1. The kernel report will be created under bins/bin/align/report/ 
 
 2. To open The Source Code tab in the Intel FPGA Dynamic Profiler for OpenCL GUI
+```
 aocl report bins/bin/align.aocx bins/bin/profile.mon device/align.cl
+```
