@@ -1,2 +1,5 @@
 Code/align_args_dump
 Code/.vscode
+FPGA/new/bins/*
+!FPGA/new/bins/dump_small
+

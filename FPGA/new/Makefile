@@ -50,12 +50,14 @@ else
 CXXFLAGS += -O2
 endif
 
+CXXFLAGS += -std=c++11
+
 # Compiler
 CXX := g++
 
 # Target
 TARGET := host
-TARGET_DIR := bin
+TARGET_DIR := $(BIN)
 
 # Directories
 INC_DIRS := ../common/inc
