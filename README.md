@@ -45,8 +45,11 @@ copy dumped_dataset to abea-on-fpga/FPGA/new/bins/
 
 ```
 #### run host program linking the dataset
+```
 make BIN=bins/bin
+
 ./bins/bin/host ../dumped_dataset
+```
 
 ### Reports
 1. The kernel report will be created under bins/bin/align/report/ 
