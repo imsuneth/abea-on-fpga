@@ -35,7 +35,7 @@ copy dumped_dataset to abea-on-fpga/FPGA/new/bins/
 
 #### compile kernels 
 ```
-<!-- ./scripts/compile_all_kernels_de5net bins/bin -->
+
 aoc -report -board=<BOARD NAME> device/<KERNEL.cl> -o bins/bin/<KERNEL.aocx> -profile
 
 ```
