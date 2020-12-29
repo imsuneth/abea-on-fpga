@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
     core->opt.verbosity = 0;
 
     load_n_bam_rec(db, batch_dir);
-    db->n_bam_rec = 5;
+    // db->n_bam_rec = 5;
 
     // core->model = (model_t*)malloc(sizeof(model_t)*db->n_bam_rec);
     posix_memalign((void **)&core->model, AOCL_ALIGNMENT, sizeof(model_t) * NUM_KMER);
@@ -145,36 +145,36 @@ int main(int argc, char *argv[])
 
     align_ocl(core, db);
 
-    for (int i = 0; i < db->n_bam_rec; i++)
-    {
-      // compare with original output
-      int32_t n_event_align_pairs = db->n_event_align_pairs[i];
-      int32_t n_event_align_pairs_out = db_out->n_event_align_pairs[i];
+    // for (int i = 0; i < db->n_bam_rec; i++)
+    // {
+    //   // compare with original output
+    //   int32_t n_event_align_pairs = db->n_event_align_pairs[i];
+    //   int32_t n_event_align_pairs_out = db_out->n_event_align_pairs[i];
 
-      if (n_event_align_pairs != n_event_align_pairs_out)
-      {
-        fprintf(stderr, "%d=\toutput: %d (%d)\tFailed\n", i, n_event_align_pairs, n_event_align_pairs_out);
-        //break;
-      }
-      else
-      {
-        fprintf(stderr, "%d=\toutput: %d (%d)\tPassed ", i, n_event_align_pairs, n_event_align_pairs_out);
-        // if (check_event_align_pairs(db->event_align_pairs[i], db_out->event_align_pairs[i], n_event_align_pairs) == 0)
-        // {
-        //   // fprintf(stderr, "%d=\t Found conflict in event_align_pairs\n", i);
-        //   fprintf(stderr, "%d=\toutput: %d, expected: %d\tFailed\n", i, n_event_align_pairs, n_event_align_pairs_out);
-        // }
-        // else
-        // {
-        //   // fprintf(stderr, "%d=\t Run pass\n", i);
-        //   fprintf(stderr, "%d=\toutput: %d, expected: %d\tPassed\n", i, n_event_align_pairs, n_event_align_pairs_out);
-        // }
-        check_event_align_pairs(db->event_align_pairs[i], db_out->event_align_pairs[i], n_event_align_pairs);
-        fprintf(stderr, "\n");
-      }
+    //   if (n_event_align_pairs != n_event_align_pairs_out)
+    //   {
+    //     fprintf(stderr, "%d=\toutput: %d (%d)\tFailed\n", i, n_event_align_pairs, n_event_align_pairs_out);
+    //     //break;
+    //   }
+    //   else
+    //   {
+    //     fprintf(stderr, "%d=\toutput: %d (%d)\tPassed ", i, n_event_align_pairs, n_event_align_pairs_out);
+    //     // if (check_event_align_pairs(db->event_align_pairs[i], db_out->event_align_pairs[i], n_event_align_pairs) == 0)
+    //     // {
+    //     //   // fprintf(stderr, "%d=\t Found conflict in event_align_pairs\n", i);
+    //     //   fprintf(stderr, "%d=\toutput: %d, expected: %d\tFailed\n", i, n_event_align_pairs, n_event_align_pairs_out);
+    //     // }
+    //     // else
+    //     // {
+    //     //   // fprintf(stderr, "%d=\t Run pass\n", i);
+    //     //   fprintf(stderr, "%d=\toutput: %d, expected: %d\tPassed\n", i, n_event_align_pairs, n_event_align_pairs_out);
+    //     // }
+    //     check_event_align_pairs(db->event_align_pairs[i], db_out->event_align_pairs[i], n_event_align_pairs);
+    //     fprintf(stderr, "\n");
+    //   }
 
-      // printf("readpos:%d, refpos:%d\n",db_out->event_align_pairs[0]->read_pos, db_out->event_align_pairs[0]->ref_pos);
-    }
+    //   // printf("readpos:%d, refpos:%d\n",db_out->event_align_pairs[0]->read_pos, db_out->event_align_pairs[0]->ref_pos);
+    // }
 
     // free
     for (int i = 0; i < db->n_bam_rec; i++)
@@ -779,7 +779,7 @@ bool init()
   device = devices[0];
 
   // Display some device information.
-  // display_device_info(device);
+  display_device_info(device);
 
   // Create the context.
   context = clCreateContext(NULL, 1, &device, &oclContextCallback, NULL, &status);
@@ -906,6 +906,19 @@ static void device_info_ulong(cl_device_id device, cl_device_info param, const c
   clGetDeviceInfo(device, param, sizeof(cl_ulong), &a, NULL);
   printf("%-40s = %lu\n", name, a);
 }
+static void device_info_size_t(cl_device_id device, cl_device_info param, const char *name)
+{
+  size_t a;
+  clGetDeviceInfo(device, param, sizeof(size_t), &a, NULL);
+  printf("%-40s = %zu\n", name, a);
+}
+
+static void device_info_size_t_arr(cl_device_id device, cl_device_info param, const char *name)
+{
+  size_t a[3];
+  clGetDeviceInfo(device, param, sizeof(size_t) * 3, &a, NULL);
+  printf("%-40s = %zu, %zu, %zu\n", name, a[0], a[1], a[2]);
+}
 static void device_info_uint(cl_device_id device, cl_device_info param, const char *name)
 {
   cl_uint a;
@@ -957,6 +970,8 @@ static void display_device_info(cl_device_id device)
   device_info_uint(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, "CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG");
   device_info_uint(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, "CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT");
   device_info_uint(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, "CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE");
+  device_info_size_t_arr(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, "CL_DEVICE_MAX_WORK_ITEM_SIZES");
+  device_info_size_t(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, "CL_DEVICE_MAX_WORK_GROUP_SIZE");
 
   {
     cl_command_queue_properties ccp;

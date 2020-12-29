@@ -65,7 +65,7 @@ LIB_DIRS :=
 
 # Files
 INCS := $(wildcard )
-SRCS := $(wildcard host/src/*.cpp ../common/src/AOCLUtils/*.cpp)
+SRCS := $(wildcard $(CPP) ../common/src/AOCLUtils/*.cpp)
 LIBS := rt pthread
 
 # Make it all!
