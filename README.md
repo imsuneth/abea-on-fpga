@@ -33,13 +33,16 @@ copy dump_dataset to abea-on-fpga/FPGA/new/bins/
 ./scripts/compile_kernel_de5net pre bins/bin
 ``` -->
 
-#### Compile all kernels for de5net
+#### run on de5net
 ```
 ./scripts/compile_all_kernels_de5net bins/bin
-```
-
-#### Compile and run host code for small dataset
-```
 make BIN=bins/bin
 ./bins/bin/host ../dump_small
 ```
+
+#### run on arria10
+```
+./scripts/compile_all_kernels_arria10 
+```
+
+
