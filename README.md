@@ -28,10 +28,10 @@ copy dump_dataset to abea-on-fpga/FPGA/new/bins/
 
 ```
 
-#### Compile individual kernel for de5net
+<!-- #### Compile individual kernel for de5net
 ```
 ./scripts/compile_kernel_de5net pre bins/bin
-```
+``` -->
 
 #### Compile all kernels for de5net
 ```
