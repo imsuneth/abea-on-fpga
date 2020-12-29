@@ -21,6 +21,11 @@ A custom hardware design of the ABEA algorithm done with hardware-software co-de
 
 ## Usage
 
+#### Create the Dataset
+```
+
+```
+
 #### Compile individual kernel for de5net
 ```
 ./scripts/compile_kernel_de5net pre bins/bin
