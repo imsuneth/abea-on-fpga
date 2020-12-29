@@ -24,6 +24,8 @@ A custom hardware design of the ABEA algorithm done with hardware-software co-de
 #### Create the Dataset
 ```
 
+copy dump_dataset to abea-on-fpga/FPGA/new/bins/
+
 ```
 
 #### Compile individual kernel for de5net
