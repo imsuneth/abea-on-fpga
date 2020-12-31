@@ -74,7 +74,7 @@ make BIN=bins/bin CPP=host/align_3k.cpp
 
 1. The kernel report will be created under bins/bin/align/report/
 
-2. To open The Source Code tab in the Intel FPGA Dynamic Profiler for OpenCL GUI
+2. To open The Source Code tab in the Intel FPGA Dynamic Profiler for OpenCL GUI (should have compile kernel with -profile flag to use this)
 
 ```
 aocl report bins/bin/align.aocx bins/bin/profile.mon device/align.cl
