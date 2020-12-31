@@ -21,18 +21,40 @@ A custom hardware design of the ABEA algorithm done with hardware-software co-de
 
 ## Usage
 
-#### Compile individual kernel for de5net
-```
-./scripts/compile_kernel_de5net pre bins/bin
+#### Create the Dataset
 ```
 
-#### Compile all kernels for de5net
-```
-./scripts/compile_all_kernels_de5net bins/bin
+copy dumped_dataset to abea-on-fpga/FPGA/new/bins/
+
 ```
 
-#### Compile and run host code for small dataset
+#### compile kernels 
 ```
-make BIN=bins/bin
-./bins/bin/host ../dump_small
+aoc -report -board=<BOARD NAME> device/<KERNEL.cl> -o bins/bin/<KERNEL.aocx> -profile
+```
+
+#### Example on de5-net 
+```
+aoc -report -board=de5net_a7 device/KERNEL.cl -o bins/bin/KERNEL.aocx -profile
+```
+
+#### run the host program linking the dataset
+```
+
+make BIN=bins/bin CPP=host/<HOST.cpp>
+./bins/bin/host /path_to_<dumped_dataset>
+```
+
+#### Example 
+```
+make BIN=bins/bin CPP=host/align_3k.cpp
+./bins/bin/host ../dumped_dataset
+```
+
+### Reports
+1. The kernel report will be created under bins/bin/align/report/ 
+
+2. To open The Source Code tab in the Intel FPGA Dynamic Profiler for OpenCL GUI
+```
+aocl report bins/bin/align.aocx bins/bin/profile.mon device/align.cl
 ```
