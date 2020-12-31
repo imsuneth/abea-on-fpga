@@ -45,8 +45,9 @@ then copy dumped_test folder in to abea-on-fpga/FPGA/new/bins/
 #### Compile kernels
 
 ```
-aoc -report -board=<BOARD NAME> device/<KERNEL.cl> -o bins/bin/<KERNEL.aocx> -profile
+aoc -report -board=<BOARD NAME> device/<KERNEL.cl> -o bins/bin/<KERNEL.aocx>
 ```
+add -profile to enable profiling : may increase the execution time.
 
 #### Example on de5-net
 
