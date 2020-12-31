@@ -70,7 +70,7 @@ make BIN=bins/bin CPP=host/align_3k.cpp
 ./bins/bin/host ../dumped_dataset
 ```
 
-### Reports
+### Reports & Profiling
 
 1. The kernel report will be created under bins/bin/align/report/
 
