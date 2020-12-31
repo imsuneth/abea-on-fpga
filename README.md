@@ -51,7 +51,7 @@ aoc -report -board=<BOARD NAME> device/<KERNEL.cl> -o bins/bin/<KERNEL.aocx> -pr
 #### Example on de5-net
 
 ```
-aoc -report -board=de5net_a7 device/KERNEL.cl -o bins/bin/KERNEL.aocx -profile
+aoc -report -board=de5net_a7 device/align.cl -o bins/bin/align.aocx -profile
 ```
 
 #### run the host program linking the dataset
