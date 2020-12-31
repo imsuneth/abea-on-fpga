@@ -25,7 +25,7 @@ A custom hardware design of the ABEA algorithm done with hardware-software co-de
 
 #### Create the Dataset
 
-Clone repository [https://github.com/imsuneth/f5c](https://github.com/imsuneth/f5c)
+Clone repository https://github.com/imsuneth/f5c
 
 ```
 git clone https://github.com/imsuneth/f5c
