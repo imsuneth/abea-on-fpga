@@ -1,7 +1,29 @@
+//******************change ****************/
+// kernel vectorization flag added to core kernel
+// but not compatible due to branches depending on kernel IDs
+//**************************************** */
 #include "f5c.h"
 
+// #include <assert.h>
+// #include "f5cmisc.cuh"
+
+//#define DEBUG_ESTIMATED_SCALING 1
+//#define DEBUG_RECALIB_SCALING 1
+//#define DEBUG_ADAPTIVE 1
+
+// From f5cmisc.cuh*****************************
+// #define ALIGN_KERNEL_FLOAT 1 //(for 2d kernel only)
+// #define WARP_HACK 1 // whether the kernels are  performed in 1D with a warp
+// hack (effective only  if specific TWODIM_ALIGN is not defined)
+// #define REVERSAL_ON_CPU \
+//   1 // reversal of the backtracked array is performed on the CPU instead of
+//   the
+//     // GPU
+
+//*********************************************
+
 // todo : can make more efficient using bit encoding
-__global uint32_t get_rank(char base) {
+inline uint32_t get_rank(char base) {
   if (base == 'A') { // todo: do we neeed simple alpha?
     return 0;
   } else if (base == 'C') {
@@ -18,7 +40,7 @@ __global uint32_t get_rank(char base) {
 
 // return the lexicographic rank of the kmer amongst all strings of
 // length k for this alphabet
-__global inline uint32_t get_kmer_rank(__global char *str, uint32_t k) {
+inline uint32_t get_kmer_rank(__global char *str, uint32_t k) {
   // uint32_t p = 1;
   uint32_t r = 0;
 
@@ -32,7 +54,7 @@ __global inline uint32_t get_kmer_rank(__global char *str, uint32_t k) {
 }
 
 // copy a kmer from a reference
-__global inline void kmer_cpy(char *dest, char *src, uint32_t k) {
+inline void kmer_cpy(char *dest, char *src, uint32_t k) {
   uint32_t i = 0;
   for (i = 0; i < k; i++) {
     dest[i] = src[i];
@@ -42,8 +64,8 @@ __global inline void kmer_cpy(char *dest, char *src, uint32_t k) {
 
 #define log_inv_sqrt_2pi -0.918938f // Natural logarithm
 
-static inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
-                                   float gp_log_stdv) {
+inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
+                            float gp_log_stdv) {
   /*INCOMPLETE*/
   // float log_inv_sqrt_2pi = -0.918938f; // Natural logarithm
   float a = (x - gp_mean) / gp_stdv;
@@ -51,10 +73,9 @@ static inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
   // return 1;
 }
 
-__global inline float
-log_probability_match_r9(scalings_t scaling, __global model_t *models,
-                         event_table events, int event_idx, uint32_t kmer_rank,
-                         uint8_t strand, float sample_rate) {
+inline float log_probability_match_r9(scalings_t scaling,
+                                      __global model_t *models, event1_t *event,
+                                      int event_idx, uint32_t kmer_rank) {
   // event level mean, scaled with the drift value
   // strand = 0;
 #ifdef DEBUG_ADAPTIVE
@@ -64,7 +85,7 @@ log_probability_match_r9(scalings_t scaling, __global model_t *models,
 
   // float time =
   //    (events.event[event_idx].start - events.event[0].start) / sample_rate;
-  float unscaledLevel = events.event[event_idx].mean;
+  float unscaledLevel = event[event_idx].mean;
   float scaledLevel = unscaledLevel;
   // float scaledLevel = unscaledLevel - time * scaling.shift;
 
@@ -97,8 +118,10 @@ log_probability_match_r9(scalings_t scaling, __global model_t *models,
 #define event_at_offset(bi, offset) band_lower_left[(bi)].event_idx - (offset)
 #define kmer_at_offset(bi, offset) band_lower_left[(bi)].kmer_idx + (offset)
 
-// #define move_down(curr_band){ curr_band.event_idx + 1, curr_band.kmer_idx }
-// #define move_right(curr_band){ curr_band.event_idx, curr_band.kmer_idx + 1 }
+// #define move_down(curr_band)                                                   \
+//   { curr_band.event_idx + 1, curr_band.kmer_idx }
+// #define move_right(curr_band)                                                  \
+//   { curr_band.event_idx, curr_band.kmer_idx + 1 }
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -122,28 +145,30 @@ log_probability_match_r9(scalings_t scaling, __global model_t *models,
 #define epsilon 1e-10f
 #endif
 
-__global inline EventKmerPair move_down(EventKmerPair curr_band) {
-  EventKmerPair ret = {curr_band.event_idx + 1, curr_band.kmer_idx};
-  return ret;
-}
-__global inline EventKmerPair move_right(EventKmerPair curr_band) {
-  EventKmerPair ret = {curr_band.event_idx, curr_band.kmer_idx + 1};
-  return ret;
-}
+// inline EventKmerPair move_down(EventKmerPair curr_band) {
+//   EventKmerPair ret = {curr_band.event_idx + 1, curr_band.kmer_idx};
+//   return ret;
+// }
+// inline EventKmerPair move_right(EventKmerPair curr_band) {
+//   EventKmerPair ret = {curr_band.event_idx, curr_band.kmer_idx + 1};
+//   return ret;
+// }
 
 /************** Kernels with 2D thread models **************/
 
 //******************************************************************************************************
 /*pre kernel*/
 //******************************************************************************************************
-
-__kernel void align_kernel_pre_2d(
-    __global char *restrict read, __global int32_t *restrict read_len,
-    __global ptr_t *restrict read_ptr, __global ptr_t *restrict event_ptr,
-    __global model_t *restrict models, int32_t n_bam_rec,
-    __global model_t *restrict model_kmer_caches,
-    __global float *restrict bands1, __global uint8_t *restrict trace1,
-    __global EventKmerPair *restrict band_lower_left1) {
+__attribute__((reqd_work_group_size(128, 1, 1))) __kernel void
+align_kernel_pre_2d(__global char *restrict read,
+                    __global int32_t *restrict read_len,
+                    __global ptr_t *restrict read_ptr,
+                    __global ptr_t *restrict event_ptr,
+                    __global model_t *restrict models, int32_t n_bam_rec,
+                    __global model_t *restrict model_kmer_caches,
+                    __global float *restrict bands1,
+                    __global uint8_t *restrict trace1,
+                    __global EventKmerPair *restrict band_lower_left1) {
   //   printf("Kernel called\n");
   // CUDA
   // int i = blockDim.y * blockIdx.y + threadIdx.y;
@@ -256,12 +281,14 @@ __kernel void align_kernel_pre_2d(
   band_lower_left_shm[(bi)].kmer_idx + (offset)
 
 #define BAND_ARRAY_SHM(r, c) (bands_shm[(r)][(c)])
-
+// #define BAND_ARRAY_SHM(r, c) (bands_shm[(c)][(r)])
 //******************************************************************************************************
 /*core kernel*/
 //******************************************************************************************************
-
-__kernel void align_kernel_core_2d_shm(
+// __attribute__((num_compute_units(4)))
+__attribute__((num_simd_work_items(4)))
+__attribute__((reqd_work_group_size(128, 1, 1))) __kernel void
+align_kernel_core_2d_shm(
     __global int32_t *restrict read_len, __global ptr_t *restrict read_ptr,
     __global event1_t *restrict event_table, // There is a built-in event_t.
                                              // Therefore, renamed as event1_t
@@ -279,57 +306,61 @@ __kernel void align_kernel_core_2d_shm(
   size_t i = get_global_id(1);
   size_t offset = get_global_id(0);
 
-  if (offset == 0)
-    printf("Completion:%lu\n", i);
+  // printf("i:%lu, offset:%lu\n", i, offset);
+
+  // if (offset == 0)
+  //   printf("Completion:%lu\n", i);
+
+  if (offset == 0) {
+  }
 
   __local float bands_shm[3][ALN_BANDWIDTH];
+  // __local float bands_shm[ALN_BANDWIDTH][3];
   __local EventKmerPair band_lower_left_shm[3];
 
-  if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+  // printf("IN CORE KERNEL - IN IF CONDITION!\n");
 
-    // printf("IN CORE KERNEL - IN IF CONDITION!\n");
+  int32_t sequence_len = read_len[i];
+  __global event1_t *events = &event_table[event_ptr[i]];
+  int32_t n_event = n_events1[i];
+  scalings_t scaling = scalings[i];
+  __global model_t *model_kmer_cache = &model_kmer_caches[read_ptr[i]];
+  __global float *bands = &band[(read_ptr[i] + event_ptr[i]) * ALN_BANDWIDTH];
+  __global uint8_t *trace =
+      &traces[(read_ptr[i] + event_ptr[i]) * ALN_BANDWIDTH];
+  __global EventKmerPair *band_lower_left =
+      &band_lower_lefts[read_ptr[i] + event_ptr[i]];
 
-    int32_t sequence_len = read_len[i];
-    __global event1_t *events = &event_table[event_ptr[i]];
-    int32_t n_event = n_events1[i];
-    scalings_t scaling = scalings[i];
-    __global model_t *model_kmer_cache = &model_kmer_caches[read_ptr[i]];
-    __global float *bands = &band[(read_ptr[i] + event_ptr[i]) * ALN_BANDWIDTH];
-    __global uint8_t *trace =
-        &traces[(read_ptr[i] + event_ptr[i]) * ALN_BANDWIDTH];
-    __global EventKmerPair *band_lower_left =
-        &band_lower_lefts[read_ptr[i] + event_ptr[i]];
-    ;
+  // size_t n_events = events[strand_idx].n;
+  int32_t n_events = n_event;
+  int32_t n_kmers = sequence_len - KMER_SIZE + 1;
+  // fprintf(stderr,"n_kmers : %d\n",n_kmers);
 
-    // size_t n_events = events[strand_idx].n;
-    int32_t n_events = n_event;
-    int32_t n_kmers = sequence_len - KMER_SIZE + 1;
-    // fprintf(stderr,"n_kmers : %d\n",n_kmers);
+  // transition penalties
+  float events_per_kmer = (float)n_events / n_kmers;
+  float p_stay = 1 - (1 / (events_per_kmer + 1));
 
-    // transition penalties
-    float events_per_kmer = (float)n_events / n_kmers;
-    float p_stay = 1 - (1 / (events_per_kmer + 1));
-
-    // setting a tiny skip penalty helps keep the true alignment within the
-    // adaptive band this was empirically determined
-    // double epsilon = 1e-10;
+  // setting a tiny skip penalty helps keep the true alignment within the
+  // adaptive band this was empirically determined
+  // double epsilon = 1e-10;
 
 #ifndef ALIGN_KERNEL_FLOAT
-    double lp_skip = log(epsilon);
-    double lp_stay = log(p_stay);
-    double lp_step = log(1.0 - exp(lp_skip) - exp(lp_stay));
-    double lp_trim = log(0.01);
+  double lp_skip = log(epsilon);
+  double lp_stay = log(p_stay);
+  double lp_step = log(1.0 - exp(lp_skip) - exp(lp_stay));
+  double lp_trim = log(0.01);
 #else
-    float lp_skip = logf(epsilon);
-    float lp_stay = logf(p_stay);
-    float lp_step = logf(1.0f - expf(lp_skip) - expf(lp_stay));
-    float lp_trim = logf(0.01f);
+  float lp_skip = logf(epsilon);
+  float lp_stay = logf(p_stay);
+  float lp_step = logf(1.0f - expf(lp_skip) - expf(lp_stay));
+  float lp_trim = logf(0.01f);
 #endif
-    // dp matrix
-    int32_t n_rows = n_events + 1;
-    int32_t n_cols = n_kmers + 1;
-    int32_t n_bands = n_rows + n_cols;
+  // dp matrix
+  int32_t n_rows = n_events + 1;
+  int32_t n_cols = n_kmers + 1;
+  int32_t n_bands = n_rows + n_cols;
 
+  if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
     BAND_ARRAY_SHM(0, offset) = BAND_ARRAY(2, offset);
     BAND_ARRAY_SHM(1, offset) = BAND_ARRAY(1, offset);
     BAND_ARRAY_SHM(2, offset) = BAND_ARRAY(0, offset);
@@ -337,36 +368,37 @@ __kernel void align_kernel_core_2d_shm(
     band_lower_left_shm[0] = band_lower_left[2];
     band_lower_left_shm[1] = band_lower_left[1];
     band_lower_left_shm[2] = band_lower_left[0];
+  }
+  // __syncthreads(); //CUDA
+  // printf("IN CORE KERNEL - IN LOOP - before barrier 0!\n");
+  barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+  // printf("IN CORE KERNEL - IN LOOP - after barrier 0!\n");
 
-    // __syncthreads(); //CUDA
-    // printf("IN CORE KERNEL - IN LOOP - before barrier 0!\n");
-    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
-    // printf("IN CORE KERNEL - IN LOOP - after barrier 0!\n");
+  /*
+      CLK_LOCAL_MEM_FENCE: The barrier function
+      will either flush any variables stored in local
+      memory or queue a memory fence to ensure
+      correct ordering of memory operations to local
+      memory.
 
-    /*
-        CLK_LOCAL_MEM_FENCE: The barrier function
-        will either flush any variables stored in local
-        memory or queue a memory fence to ensure
-        correct ordering of memory operations to local
-        memory.
+      \u2022 CLK_GLOBAL_MEM_FENCE: The barrier function
+      will either flush any variables stored in global
+      memory or queue a memory fence to ensure
+      correct ordering of memory operations to
+      global memory. This is needed when work-
+      items in a work-group, for example, write to a
+      buffer object in global memory and then read
+      the updated data.
+  */
+  // printf("IN CORE KERNEL - Before loop!\n");
+  // fill in remaining bands
+  //#pragma unroll
+  for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
 
-        • CLK_GLOBAL_MEM_FENCE: The barrier function
-        will either flush any variables stored in global
-        memory or queue a memory fence to ensure
-        correct ordering of memory operations to
-        global memory. This is needed when work-
-        items in a work-group, for example, write to a
-        buffer object in global memory and then read
-        the updated data.
-    */
-    // printf("IN CORE KERNEL - Before loop!\n");
-    // fill in remaining bands
+    // priclntf("Core Kernel - i: %lu, band_idx: %d\n", i, band_idx);
 
-    for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
-
-      // priclntf("Core Kernel - i: %lu, band_idx: %d\n", i, band_idx);
-
-      // printf("IN CORE KERNEL - In loop!\n");
+    // printf("IN CORE KERNEL - In loop!\n");
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
       if (offset == 0) {
         // Determine placement of this band according to Suzuki's adaptive
         // algorithm When both ll and ur are out-of-band (ob) we alternate
@@ -419,29 +451,37 @@ __kernel void align_kernel_core_2d_shm(
           }
         }
       }
-      // __syncthreads();
-      // printf("IN CORE KERNEL - IN LOOP - before barrier 1!\n");
-      barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
-      // printf("IN CORE KERNEL - IN LOOP - after barrier 1!\n");
+    }
+    // __syncthreads();
+    // printf("IN CORE KERNEL - IN LOOP - before barrier 1!\n");
+    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+    // printf("IN CORE KERNEL - IN LOOP - after barrier 1!\n");
 
+    int kmer_min_offset;
+    int kmer_max_offset;
+    int event_min_offset;
+    int event_max_offset;
+    int min_offset;
+    int max_offset;
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
       // Get the offsets for the first and last event and kmer
       // We restrict the inner loop to only these values
-      int kmer_min_offset = band_kmer_to_offset_shm(0, 0);
-      int kmer_max_offset = band_kmer_to_offset_shm(0, n_kmers);
-      int event_min_offset = band_event_to_offset_shm(0, n_events - 1);
-      int event_max_offset = band_event_to_offset_shm(0, -1);
+      kmer_min_offset = band_kmer_to_offset_shm(0, 0);
+      kmer_max_offset = band_kmer_to_offset_shm(0, n_kmers);
+      event_min_offset = band_event_to_offset_shm(0, n_events - 1);
+      event_max_offset = band_event_to_offset_shm(0, -1);
 
-      int min_offset = MAX(kmer_min_offset, event_min_offset);
+      min_offset = MAX(kmer_min_offset, event_min_offset);
       min_offset = MAX(min_offset, 0);
 
-      int max_offset = MIN(kmer_max_offset, event_max_offset);
+      max_offset = MIN(kmer_max_offset, event_max_offset);
       max_offset = MIN(max_offset, bandwidth);
-
-      // __syncthreads();
-      // printf("IN CORE KERNEL - IN LOOP - before barrier 2!\n");
-      barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
-      // printf("IN CORE KERNEL - IN LOOP - after barrier 2!\n");
-
+    }
+    // __syncthreads();
+    // printf("IN CORE KERNEL - IN LOOP - before barrier 2!\n");
+    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+    // printf("IN CORE KERNEL - IN LOOP - after barrier 2!\n");
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
       if (offset >= min_offset && offset < max_offset) {
 
         int event_idx = event_at_offset_shm(0, offset);
@@ -527,12 +567,13 @@ __kernel void align_kernel_core_2d_shm(
         TRACE_ARRAY(band_idx, offset) = from;
         // fills += 1;
       }
+    }
+    // __syncthreads();
+    // printf("IN CORE KERNEL - IN LOOP - before barrier 3!\n");
+    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+    // printf("IN CORE KERNEL - IN LOOP - after barrier 3!\n");
 
-      // __syncthreads();
-      // printf("IN CORE KERNEL - IN LOOP - before barrier 3!\n");
-      barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
-      // printf("IN CORE KERNEL - IN LOOP - after barrier 3!\n");
-
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
       BAND_ARRAY(band_idx, offset) = BAND_ARRAY_SHM(0, offset);
 
       BAND_ARRAY_SHM(2, offset) = BAND_ARRAY_SHM(1, offset);
@@ -543,36 +584,37 @@ __kernel void align_kernel_core_2d_shm(
         band_lower_left_shm[2] = band_lower_left_shm[1];
         band_lower_left_shm[1] = band_lower_left_shm[0];
       }
-
-      // __syncthreads();
-      // printf("IN CORE KERNEL - IN LOOP - before barrier 4!\n");
-      barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
-      // printf("IN CORE KERNEL - IN LOOP - after barrier 4!\n");
     }
+    // __syncthreads();
+    // printf("IN CORE KERNEL - IN LOOP - before barrier 4!\n");
+    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+    // printf("IN CORE KERNEL - IN LOOP - after barrier 4!\n");
+
     // printf("IN CORE KERNEL - After loop!\n");
   }
 
-  else {
+  // else {
 
-    int32_t sequence_len = read_len[i];
-    int32_t n_event = n_events1[i];
+  //   // printf("Deviated work item ");
+  //   // printf("i:%lu, offset:%lu\n", i, offset);
+  //   int32_t sequence_len = read_len[i];
+  //   int32_t n_event = n_events1[i];
 
-    int32_t n_events = n_event;
-    int32_t n_kmers = sequence_len - KMER_SIZE + 1;
+  //   int32_t n_events = n_event;
+  //   int32_t n_kmers = sequence_len - KMER_SIZE + 1;
 
-    // dp matrix
-    int32_t n_rows = n_events + 1;
-    int32_t n_cols = n_kmers + 1;
-    int32_t n_bands = n_rows + n_cols;
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-    for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
-      barrier(CLK_LOCAL_MEM_FENCE);
-      barrier(CLK_LOCAL_MEM_FENCE);
-      barrier(CLK_LOCAL_MEM_FENCE);
-      barrier(CLK_LOCAL_MEM_FENCE);
-    }
-  }
+  //   // dp matrix
+  //   int32_t n_rows = n_events + 1;
+  //   int32_t n_cols = n_kmers + 1;
+  //   int32_t n_bands = n_rows + n_cols;
+  //   barrier(CLK_LOCAL_MEM_FENCE);
+  //   for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
+  //     barrier(CLK_LOCAL_MEM_FENCE);
+  //     barrier(CLK_LOCAL_MEM_FENCE);
+  //     barrier(CLK_LOCAL_MEM_FENCE);
+  //     barrier(CLK_LOCAL_MEM_FENCE);
+  //   }
+  // }
 }
 
 // //******************************************************************************************************
@@ -580,7 +622,7 @@ __kernel void align_kernel_core_2d_shm(
 // //******************************************************************************************************
 
 // align post kernel
-__kernel void align_kernel_post(
+__attribute__((reqd_work_group_size(1, 1, 1))) __kernel void align_kernel_post(
     __global AlignedPair *restrict event_align_pairs,
     __global int32_t *restrict n_event_align_pairs,
     __global int32_t *restrict read_len, __global ptr_t *restrict read_ptr,
@@ -754,6 +796,18 @@ __kernel void align_kernel_post(
 #ifndef ALIGN_KERNEL_FLOAT
       float gp_log_stdv = log(gp_stdv);   // scaling.log_var = log(1)=0;
 #else
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
       float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
 #endif
 #endif

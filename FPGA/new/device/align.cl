@@ -142,14 +142,14 @@ inline float log_probability_match_r9(scalings_t scaling,
 #define epsilon 1e-10f
 #endif
 
-inline EventKmerPair move_down(EventKmerPair curr_band) {
-  EventKmerPair ret = {curr_band.event_idx + 1, curr_band.kmer_idx};
-  return ret;
-}
-inline EventKmerPair move_right(EventKmerPair curr_band) {
-  EventKmerPair ret = {curr_band.event_idx, curr_band.kmer_idx + 1};
-  return ret;
-}
+// inline EventKmerPair move_down(EventKmerPair curr_band) {
+//   EventKmerPair ret = {curr_band.event_idx + 1, curr_band.kmer_idx};
+//   return ret;
+// }
+// inline EventKmerPair move_right(EventKmerPair curr_band) {
+//   EventKmerPair ret = {curr_band.event_idx, curr_band.kmer_idx + 1};
+//   return ret;
+// }
 
 /************** Kernels with 2D thread models **************/
 
@@ -157,13 +157,15 @@ inline EventKmerPair move_right(EventKmerPair curr_band) {
 /*pre kernel*/
 //******************************************************************************************************
 __attribute__((reqd_work_group_size(128, 1, 1))) __kernel void
-align_kernel_pre_2d(
-    __global char *restrict read, __global int32_t *restrict read_len,
-    __global ptr_t *restrict read_ptr, __global int32_t *restrict n_events,
-    __global ptr_t *restrict event_ptr, __global model_t *restrict models,
-    int32_t n_bam_rec, __global model_t *restrict model_kmer_caches,
-    __global float *restrict bands1, __global uint8_t *restrict trace1,
-    __global EventKmerPair *restrict band_lower_left1) {
+align_kernel_pre_2d(__global char *restrict read,
+                    __global int32_t *restrict read_len,
+                    __global ptr_t *restrict read_ptr,
+                    __global ptr_t *restrict event_ptr,
+                    __global model_t *restrict models, int32_t n_bam_rec,
+                    __global model_t *restrict model_kmer_caches,
+                    __global float *restrict bands1,
+                    __global uint8_t *restrict trace1,
+                    __global EventKmerPair *restrict band_lower_left1) {
   //   printf("Kernel called\n");
   // CUDA
   // int i = blockDim.y * blockIdx.y + threadIdx.y;
@@ -276,11 +278,11 @@ align_kernel_pre_2d(
   band_lower_left_shm[(bi)].kmer_idx + (offset)
 
 #define BAND_ARRAY_SHM(r, c) (bands_shm[(r)][(c)])
-
+// #define BAND_ARRAY_SHM(r, c) (bands_shm[(c)][(r)])
 //******************************************************************************************************
 /*core kernel*/
 //******************************************************************************************************
-__attribute__((num_compute_units(4)))
+// __attribute__((num_compute_units(4)))
 __attribute__((reqd_work_group_size(128, 1, 1))) __kernel void
 align_kernel_core_2d_shm(
     __global int32_t *restrict read_len, __global ptr_t *restrict read_ptr,
@@ -305,10 +307,8 @@ align_kernel_core_2d_shm(
   // if (offset == 0)
   //   printf("Completion:%lu\n", i);
 
-  if (offset == 0) {
-  }
-
   __local float bands_shm[3][ALN_BANDWIDTH];
+  // __local float bands_shm[ALN_BANDWIDTH][3];
   __local EventKmerPair band_lower_left_shm[3];
 
   // printf("IN CORE KERNEL - IN IF CONDITION!\n");
@@ -419,7 +419,6 @@ align_kernel_core_2d_shm(
           band_lower_left[band_idx].event_idx =
               band_lower_left_shm[0].event_idx =
                   band_lower_left_shm[1].event_idx;
-
         } else {
           // band_lower_left[band_idx] = band_lower_left_shm[0] =
           //     move_down(band_lower_left_shm[1]);
@@ -554,7 +553,7 @@ align_kernel_core_2d_shm(
                 "%.2lf\n",
                 band_idx, offset, event_idx, kmer_idx, max_score, from,
                 lp_emission);
-#endif // DEBUG_ADAPTIVE
+#endif // DEBUG_ADAPTIVE \
        // BAND_ARRAY(band_idx,offset) = max_score;
         BAND_ARRAY_SHM(0, offset) = max_score;
         TRACE_ARRAY(band_idx, offset) = from;
@@ -615,7 +614,7 @@ align_kernel_core_2d_shm(
 // //******************************************************************************************************
 
 // align post kernel
-__attribute__((reqd_work_group_size(1, 1, 1))) __kernel void align_kernel_post(
+__kernel void align_kernel_post(
     __global AlignedPair *restrict event_align_pairs,
     __global int32_t *restrict n_event_align_pairs,
     __global int32_t *restrict read_len, __global ptr_t *restrict read_ptr,

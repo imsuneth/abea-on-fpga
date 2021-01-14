@@ -1,3 +1,6 @@
+//************change************************
+// clGetEventProfilingInfo is used to measure time
+//*********************************************
 #include "f5c.h"
 #include <assert.h>
 #include <stdint.h>
@@ -71,17 +74,6 @@ double total_time_core_kernel = 0;
 double total_time_post_kernel = 0;
 double host_to_device_transfer_time = 0;
 double device_to_host_transfer_time = 0;
-
-double align_kernel_time;
-double align_pre_kernel_time;
-double align_core_kernel_time;
-double align_post_kernel_time;
-double align_cl_malloc;
-double align_cl_memcpy;
-double align_cl_memcpy_back;
-double align_cl_postprocess;
-double align_cl_preprocess;
-double align_cl_total_kernel;
 
 // Entry point.
 int main(int argc, char *argv[])
@@ -224,13 +216,12 @@ int main(int argc, char *argv[])
     free(core);
     free(db);
   }
-  fprintf(stderr, "Total execution time for pre_kernel %.3f seconds\n", align_pre_kernel_time);
-  fprintf(stderr, "Total execution time for core_kernel %.3f seconds\n", align_core_kernel_time);
-  fprintf(stderr, "Total execution time for post_kernel %.3f seconds\n", align_post_kernel_time);
-  align_cl_total_kernel = align_pre_kernel_time + align_core_kernel_time + align_post_kernel_time;
-  fprintf(stderr, "Total execution time for all kernels %.3f seconds\n", align_cl_total_kernel);
-  fprintf(stderr, "Total data transfer time from host to device %.3f seconds\n", align_cl_memcpy);
-  fprintf(stderr, "Total data transfer time from device to host %.3f seconds\n", align_cl_memcpy_back);
+  fprintf(stderr, "Total execution time for pre_kernel %.3f seconds\n", total_time_pre_kernel * (cl_double)(1e-09));
+  fprintf(stderr, "Total execution time for core_kernel %.3f seconds\n", total_time_core_kernel * (cl_double)(1e-09));
+  fprintf(stderr, "Total execution time for post_kernel %.3f seconds\n", total_time_post_kernel * (cl_double)(1e-09));
+  fprintf(stderr, "Total execution time for all kernels %.3f seconds\n", (total_time_pre_kernel + total_time_core_kernel + total_time_post_kernel) * (cl_double)(1e-09));
+  fprintf(stderr, "Total data transfer time from host to device %.3f seconds\n", host_to_device_transfer_time * (cl_double)(1e-09));
+  fprintf(stderr, "Total data transfer time from device to host %.3f seconds\n", device_to_host_transfer_time * (cl_double)(1e-09));
   fprintf(stderr, "Total number of reads %ld\n\n\n", total_no_of_reads);
 
   cleanup();
@@ -345,7 +336,7 @@ void align_ocl(core_t *core, db_t *db)
   posix_memalign((void **)&event_align_pairs_host, AOCL_ALIGNMENT, 2 * sum_n_events * sizeof(AlignedPair));
   MALLOC_CHK(event_align_pairs_host);
 
-  align_cl_preprocess += (realtime() - realtime1);
+  core->align_cuda_preprocess += (realtime() - realtime1);
 
   /** Start OpenCL memory allocation**/
   realtime1 = realtime();
@@ -421,12 +412,12 @@ void align_ocl(core_t *core, db_t *db)
   size_t sum_n_bands = sum_n_events + sum_read_len; //todo : can be optimised
   if (core->opt.verbosity > 1)
     print_size("bands", sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
-  cl_mem bands = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
+  cl_mem bands = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
   if (core->opt.verbosity > 1)
     print_size("trace", sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
-  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
+  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
   uint8_t zeros[n_bam_rec];
@@ -434,82 +425,81 @@ void align_ocl(core_t *core, db_t *db)
   {
     zeros[i] = 0;
   }
-  status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
 
   if (core->opt.verbosity > 1)
     print_size("band_lower_left", sizeof(EventKmerPair) * sum_n_bands);
   cl_mem band_lower_left = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
-  align_cl_malloc += (realtime() - realtime1);
+  core->align_cuda_malloc += (realtime() - realtime1);
 
   /* cuda mem copys*/
   realtime1 = realtime();
 
-  status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
-  status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0, sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
+  status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0, sum_read_len * sizeof(char), read_host, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
   //read length : already linear hence direct copy
 
-  status = clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), db->read_len, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), db->read_len, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
 
-  status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
 
-  status = clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
 
-  status = clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
 
-  status = clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
-
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
   //can be interleaved
 
-  status = clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, NULL);
+  status = clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, &event);
   checkError(status, "Failed clEnqueueWriteBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // host_to_device_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  host_to_device_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
 
-  align_cl_memcpy += (realtime() - realtime1);
+  core->align_cuda_memcpy += (realtime() - realtime1);
 
   realtime1 = realtime();
 
@@ -558,7 +548,7 @@ void align_ocl(core_t *core, db_t *db)
   if (core->opt.verbosity > 0)
     printf("Calling Pre kernel\n");
 
-  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, NULL, gridpre, blockpre, 0, NULL, NULL);
+  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, NULL, gridpre, blockpre, 0, NULL, &event);
   status = clFinish(queue);
   checkError(status, "Failed to finish");
 
@@ -566,15 +556,15 @@ void align_ocl(core_t *core, db_t *db)
   // checkError(status, "Failed to release event");
   //********** Pre-Kernel execution time *************************
 
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // total_time_pre_kernel += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  total_time_pre_kernel += (cl_double)(end - start);
 
+  clReleaseEvent(event);
   // if (core->opt.verbosity > 1)
   //   fprintf(stderr, "[%s::%.3f*%.2f] align-pre kernel done\n", __func__, realtime() - realtime1, cputime() / (realtime() - realtime1));
-  align_kernel_time += (realtime() - realtime1);
-  align_pre_kernel_time += (realtime() - realtime1);
+  core->align_kernel_time += (realtime() - realtime1);
+  core->align_pre_kernel_time += (realtime() - realtime1);
 
   realtime1 = realtime();
 
@@ -616,7 +606,7 @@ void align_ocl(core_t *core, db_t *db)
   if (core->opt.verbosity > 0)
     printf("Calling core kernel\n");
 
-  clEnqueueNDRangeKernel(queue, align_kernel_core_2d_shm, 2, NULL, grid1, block1, 0, NULL, NULL);
+  clEnqueueNDRangeKernel(queue, align_kernel_core_2d_shm, 2, NULL, grid1, block1, 0, NULL, &event);
   status = clFinish(queue);
   checkError(status, "Failed to finish");
 
@@ -624,13 +614,13 @@ void align_ocl(core_t *core, db_t *db)
   // checkError(status, "Failed to release event");
   //********** Core-Kernel execution time *************************
 
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // total_time_core_kernel += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  total_time_core_kernel += (cl_double)(end - start);
+  clReleaseEvent(event);
 
-  align_kernel_time += (realtime() - realtime1);
-  align_core_kernel_time += (realtime() - realtime1);
+  core->align_kernel_time += (realtime() - realtime1);
+  core->align_core_kernel_time += (realtime() - realtime1);
   realtime1 = realtime();
 
   //******************************************************************************************************
@@ -675,7 +665,7 @@ void align_ocl(core_t *core, db_t *db)
 
   if (core->opt.verbosity > 0)
     printf("Calling post kernel. 'WARP_HACK' not set\n");
-  clEnqueueNDRangeKernel(queue, align_kernel_post, 1, NULL, gridpost, blockpost, 0, NULL, NULL);
+  clEnqueueNDRangeKernel(queue, align_kernel_post, 1, NULL, gridpost, blockpost, 0, NULL, &event);
 
 #endif
   status = clFinish(queue);
@@ -685,31 +675,32 @@ void align_ocl(core_t *core, db_t *db)
   // checkError(status, "Failed to release event");
   //********** Post-Kernel execution time *************************
 
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // total_time_post_kernel += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  total_time_post_kernel += (cl_double)(end - start);
+  clReleaseEvent(event);
 
-  align_kernel_time += (realtime() - realtime1);
-  align_post_kernel_time += (realtime() - realtime1);
+  core->align_kernel_time += (realtime() - realtime1);
+  core->align_post_kernel_time += (realtime() - realtime1);
 
   realtime1 = realtime();
 
-  status = clEnqueueReadBuffer(queue, n_event_align_pairs, CL_TRUE, 0, sizeof(int32_t) * n_bam_rec, db->n_event_align_pairs, 0, NULL, NULL);
-  checkError(status, "clEnqueueReadBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // device_to_host_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  status = clEnqueueReadBuffer(queue, n_event_align_pairs, CL_TRUE, 0, sizeof(int32_t) * n_bam_rec, db->n_event_align_pairs, 0, NULL, &event);
 
-  status = clEnqueueReadBuffer(queue, event_align_pairs, CL_TRUE, 0, 2 * sum_n_events * sizeof(AlignedPair), event_align_pairs_host, 0, NULL, NULL);
   checkError(status, "clEnqueueReadBuffer");
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  // device_to_host_transfer_time += (cl_double)(end - start);
-  // clReleaseEvent(event);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  device_to_host_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
 
-  align_cl_memcpy_back += (realtime() - realtime1);
+  status = clEnqueueReadBuffer(queue, event_align_pairs, CL_TRUE, 0, 2 * sum_n_events * sizeof(AlignedPair), event_align_pairs_host, 0, NULL, &event);
+  checkError(status, "clEnqueueReadBuffer");
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  device_to_host_transfer_time += (cl_double)(end - start);
+  clReleaseEvent(event);
+
+  core->align_cuda_memcpy += (realtime() - realtime1);
 
   realtime1 = realtime();
 
@@ -747,7 +738,7 @@ void align_ocl(core_t *core, db_t *db)
   status = clReleaseMemObject(band_lower_left);
   checkError(status, "clReleaseMemObject failed!");
 
-  align_cl_malloc += (realtime() - realtime1);
+  core->align_cuda_malloc += (realtime() - realtime1);
 
   /** post work**/
   realtime1 = realtime();
@@ -769,7 +760,7 @@ void align_ocl(core_t *core, db_t *db)
   free(event_table_host);
   free(event_align_pairs_host);
 
-  align_cl_postprocess += (realtime() - realtime1);
+  core->align_cuda_postprocess += (realtime() - realtime1);
 }
 
 /////// HELPER FUNCTIONS ///////

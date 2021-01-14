@@ -1,3 +1,10 @@
+//******************change*******************************************
+// Seperate partitioning of gloabal memory
+// using
+// CL_CHANNEL_1_INTELFPGA
+// CL_CHANNEL_2_INTELFPGA
+// for clCreatBuffer for trace and bands
+//*******************************************************************
 #include "f5c.h"
 #include <assert.h>
 #include <stdint.h>
@@ -416,19 +423,22 @@ void align_ocl(core_t *core, db_t *db)
   cl_mem n_event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
+  //******************change*******************************************
+
   // #endif
   //scratch arrays
   size_t sum_n_bands = sum_n_events + sum_read_len; //todo : can be optimised
   if (core->opt.verbosity > 1)
     print_size("bands", sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
-  cl_mem bands = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
+  cl_mem bands = clCreateBuffer(context, (CL_MEM_READ_WRITE | CL_CHANNEL_1_INTELFPGA), sizeof(float) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
   if (core->opt.verbosity > 1)
     print_size("trace", sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
-  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
+  cl_mem trace = clCreateBuffer(context, (CL_MEM_READ_WRITE | CL_CHANNEL_2_INTELFPGA), sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
+  //********************************************************************
   uint8_t zeros[n_bam_rec];
   for (i = 0; i < n_bam_rec; i++)
   {

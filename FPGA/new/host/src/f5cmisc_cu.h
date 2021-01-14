@@ -17,7 +17,7 @@
 // #define WARP_HACK 1 //whether the kernels are  performed in 1D with a warp hack (effective only  if specific TWODIM_ALIGN is not defined)
 
 /* align-core-kernel options */
-#define BLOCK_LEN_READS 1 //the block size along y axis (the number of reads) - never change this as you might end up with wrong answers
+#define BLOCK_LEN_READS 1       //the block size along y axis (the number of reads) - never change this as you might end up with wrong answers
 #define BLOCK_LEN_BANDWIDTH 128 //the block size along the x axis, should be >= ALN_BANDWIDTH
 // #define ALIGN_KERNEL_FLOAT 1 //(for 2d kernel only)
 
@@ -44,11 +44,10 @@ and then the program will be aborted*/
 // #define CUDA_CHK()                                                             \
 //     { gpu_assert(__FILE__, __LINE__); }
 
-#define clErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-
-
-
-
+#define clErrchk(ans)                         \
+    {                                         \
+        gpuAssert((ans), __FILE__, __LINE__); \
+    }
 
 // __global__ void
 // //__launch_bounds__(MY_KERNEL_MAX_THREADS, MY_KERNEL_MIN_BLOCKS)
@@ -62,7 +61,6 @@ and then the program will be aborted*/
 //     int32_t* n_events,
 //     ptr_t* event_ptr, model_t* models,
 //     int32_t n_bam_rec,model_t* model_kmer_caches,float *bands1,uint8_t *trace1, EventKmerPair* band_lower_left1) ;
-
 
 // __global__ void align_kernel_post(AlignedPair* event_align_pairs,
 //     int32_t* n_event_align_pairs,

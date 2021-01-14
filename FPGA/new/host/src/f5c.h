@@ -444,6 +444,7 @@ typedef struct
     double extra_load_cpu;
     double align_cuda_malloc;
     double align_cuda_memcpy;
+    double align_cuda_memcpy_back;
     double align_cuda_postprocess;
     double align_cuda_preprocess;
     double align_cuda_total_kernel;

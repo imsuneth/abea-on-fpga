@@ -139,9 +139,9 @@ __global inline EventKmerPair move_right(EventKmerPair curr_band) {
 
 __kernel void align_kernel_pre_2d(
     __global char *restrict read, __global int32_t *restrict read_len,
-    __global ptr_t *restrict read_ptr, __global int32_t *restrict n_events,
-    __global ptr_t *restrict event_ptr, __global model_t *restrict models,
-    int32_t n_bam_rec, __global model_t *restrict model_kmer_caches,
+    __global ptr_t *restrict read_ptr, __global ptr_t *restrict event_ptr,
+    __global model_t *restrict models, int32_t n_bam_rec,
+    __global model_t *restrict model_kmer_caches,
     __global float *restrict bands1, __global uint8_t *restrict trace1,
     __global EventKmerPair *restrict band_lower_left1) {
   //   printf("Kernel called\n");
