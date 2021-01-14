@@ -1,13 +1,15 @@
 # Accelerating Adaptive Banded Event Alignment Algorithm on FPGAs using OpenCL
 
 ## Aim of the proposed project:
-- Effective utilization of OpenCL to map the Adaptive Banded Event Alignment(ABEA) algorithm to run efficiently on an FPGA. 
+
+- Effective utilization of OpenCL to map the Adaptive Banded Event Alignment(ABEA) algorithm to run efficiently on an FPGA.
 - Evaluate the performance improvement of the ABEA with the FPGA implementation.
 
 ## Background
+
 The process of DNA sequencing is a precise determination of the amount and distribution of nucleotides (adenine (A), guanine (G), cytosine (C), and thymine (T)) in DNA molecules. It has a very strong impact in various biological fields such as human genetics, agriculture, bioinformatics, etc.
 
-DNA sequencing machines produce gene sequences much faster than the traditional molecular biology techniques and also these DNA sequencing data is much larger in size (terabytes of data, read lengths of 1000 to >1M bases).  Analyzing these data still depends on high-performance or cloud computers. 
+DNA sequencing machines produce gene sequences much faster than the traditional molecular biology techniques and also these DNA sequencing data is much larger in size (terabytes of data, read lengths of 1000 to >1M bases). Analyzing these data still depends on high-performance or cloud computers.
 
 Therefore, accelerating DNA sequencing methods by heterogeneous architectures ( i.e.FPGAs) and the capability of detecting entire genomes in short periods of time could revolutionize the world of medicine and technology.
 
@@ -21,18 +23,59 @@ A custom hardware design of the ABEA algorithm done with hardware-software co-de
 
 ## Usage
 
-#### Compile individual kernel for de5net
+#### Create the Dataset
+
+Clone repository https://github.com/imsuneth/f5c
+
 ```
-./scripts/compile_kernel_de5net pre bins/bin
+git clone https://github.com/imsuneth/f5c
+cd f5c
 ```
 
-#### Compile all kernels for de5net
+Run f5c according to the documentation
+
+example: run f5c on ecoli_2kb_region dataset with maximum batch size of 1.3Mbases
+
 ```
-./scripts/compile_all_kernels_de5net bins/bin
+./scripts/test.sh -c -B 1.3M
 ```
 
-#### Compile and run host code for small dataset
+then copy dumped_test folder in to abea-on-fpga/FPGA/new/bins/
+
+#### Compile kernels
+
 ```
-make BIN=bins/bin
-./bins/bin/host ../dump_small
+aoc -report -board=<BOARD NAME> device/<KERNEL.cl> -o bins/bin/<KERNEL.aocx>
+```
+add -profile to enable profiling : may increase the execution time.
+
+#### Example on de5-net
+
+```
+aoc -report -board=de5net_a7 device/align.cl -o bins/bin/align.aocx -profile
+```
+
+#### run the host program linking the dataset
+
+```
+
+make BIN=bins/bin CPP=host/<HOST.cpp>
+./bins/bin/host /path_to_<dumped_dataset>
+```
+
+#### Example
+
+```
+make BIN=bins/bin CPP=host/align_3k.cpp
+./bins/bin/host ../dumped_dataset
+```
+
+### Reports & Profiling
+
+1. The kernel report will be created under bins/bin/align/report/
+
+2. To open The Source Code tab in the Intel FPGA Dynamic Profiler for OpenCL GUI (should have compile kernel with -profile flag to use this)
+
+```
+aocl report bins/bin/align.aocx bins/bin/profile.mon device/align.cl
 ```
