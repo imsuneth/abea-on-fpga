@@ -1,0 +1,76 @@
+01) bin: 
+	OpenCL implementation ported directly form GPU version.
+	+ Host memory allocation with alignment of 64 using posix_mem_align().
+	+ move_down(), move_right() directive functions are not supported by opencl kernels. Replaced with implementation where it is used.
+	+ barrier() is taken out from branches to be met by all the work-items. otherwise kernel hangs.
+	+--------------------------------------------------------------------+
+	; Estimated Resource Usage Summary                                   ;
+	+----------------------------------------+---------------------------+
+	; Resource                               + Usage                     ;
+	+----------------------------------------+---------------------------+
+	; Logic utilization                      ;   78%                     ;
+	; ALUTs                                  ;   52%                     ;
+	; Dedicated logic registers              ;   31%                     ;
+	; Memory blocks                          ;   71%                     ;
+	; DSP blocks                             ;   48%                     ;
+	+----------------------------------------+---------------------------
+
+
+	dataset partitioning:
+	+ partition dataset into 0k-10k, 10k-20k, ...
+	= no speedup for any range than CPU
+
+	+ structs are aligned = 
+	+ chache generation prevented for some variables = utilization reduced
+	+--------------------------------------------------------------------+
+	; Estimated Resource Usage Summary                                   ;
+	+----------------------------------------+---------------------------+
+	; Resource                               + Usage                     ;
+	+----------------------------------------+---------------------------+
+	; Logic utilization                      ;   69%                     ;
+	; ALUTs                                  ;   45%                     ;
+	; Dedicated logic registers              ;   29%                     ;
+	; Memory blocks                          ;   56%                     ;
+	; DSP blocks                             ;   48%                     ;
+	+----------------------------------------+---------------------------;
+
+
+bin_optimized:
+	+ Minor changes in core kernel = not much difference
+	+ Removed barriers and checked = kernel hangs
+	+ Removed branching on work item ID in core kernel, In host, changed bands, trace size from ALN_BANDWIDTH to BLOCK_LEN_BANDWIDTH = speedup
+
+bin_single:
+	CPU implementation converted into OpenCL single work item kernel.
+	Batch of reads
+	+--------------------------------------------------------------------+
+	; Estimated Resource Usage Summary                                   ;
+	+----------------------------------------+---------------------------+
+	; Resource                               + Usage                     ;
+	+----------------------------------------+---------------------------+
+	; Logic utilization                      ;   68%                     ;
+	; ALUTs                                  ;   45%                     ;
+	; Dedicated logic registers              ;   27%                     ;
+	; Memory blocks                          ;   53%                     ;
+	; DSP blocks                             ;   51%                     ;
+	+----------------------------------------+---------------------------;
+
+
+bin_optimized2:
+	+ Global memory writes are moved out from inner loop and done at the end = 
+
+bin_single_read:
+	CPU implementation converted into OpenCL single work item kernel.
+	Host provides read by read
+	+--------------------------------------------------------------------+
+	; Estimated Resource Usage Summary                                   ;
+	+----------------------------------------+---------------------------+
+	; Resource                               + Usage                     ;
+	+----------------------------------------+---------------------------+
+	; Logic utilization                      ;   67%                     ;
+	; ALUTs                                  ;   44%                     ;
+	; Dedicated logic registers              ;   27%                     ;
+	; Memory blocks                          ;   52%                     ;
+	; DSP blocks                             ;   51%                     ;
+	+----------------------------------------+---------------------------;
+

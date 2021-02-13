@@ -76,7 +76,7 @@ typedef long int64_t;
 // typedef char int8_t;
 
 typedef unsigned long uint64_t;
-typedef unsigned long size_t;
+// typedef unsigned long size_t;
 
 typedef int64_t ptr_t;
 

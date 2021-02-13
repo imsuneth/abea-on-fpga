@@ -19,7 +19,7 @@ using namespace aocl_utils;
 #include "f5cmisc_cu.h"
 #include "f5cmisc.h"
 
-#define SEPARATE_KERNELS 1
+// #define SEPARATE_KERNELS 1
 
 int print_results = false;
 
@@ -217,11 +217,11 @@ int main(int argc, char *argv[])
     free(core);
     free(db);
   }
-  fprintf(stderr, "Total execution time for pre_kernel %.3f seconds\n", align_pre_kernel_time * 10e-10);
-  fprintf(stderr, "Total execution time for core_kernel %.3f seconds\n", align_core_kernel_time * 10e-10);
-  fprintf(stderr, "Total execution time for post_kernel %.3f seconds\n", align_post_kernel_time * 10e-10);
+  fprintf(stderr, "Total execution time for pre_kernel %.3f seconds\n", align_pre_kernel_time);
+  fprintf(stderr, "Total execution time for core_kernel %.3f seconds\n", align_core_kernel_time);
+  fprintf(stderr, "Total execution time for post_kernel %.3f seconds\n", align_post_kernel_time);
   align_cl_total_kernel = align_pre_kernel_time + align_core_kernel_time + align_post_kernel_time;
-  fprintf(stderr, "Total execution time for all kernels %.3f seconds\n", align_cl_total_kernel * 10e-10);
+  fprintf(stderr, "Total execution time for all kernels %.3f seconds\n", align_cl_total_kernel);
   fprintf(stderr, "Total data transfer time from host to device %.3f seconds\n", align_cl_memcpy);
   fprintf(stderr, "Total data transfer time from device to host %.3f seconds\n", align_cl_memcpy_back);
   fprintf(stderr, "Total number of reads %ld\n\n\n", total_no_of_reads);
@@ -420,8 +420,8 @@ void align_ocl(core_t *core, db_t *db)
 
   //trace
   if (core->opt.verbosity > 1)
-    print_size("trace", sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH);
-  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH, NULL, &status);
+    print_size("trace", sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
+  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
   uint8_t zeros[n_bam_rec];
@@ -513,8 +513,6 @@ void align_ocl(core_t *core, db_t *db)
       global = gridpre .* blockpre
     */
 
-  // fprintf(stderr, "Before Pre\n");
-
   //******************************************************************************************************
   /*pre kernel*/
   //******************************************************************************************************
@@ -522,38 +520,27 @@ void align_ocl(core_t *core, db_t *db)
   // Set the kernel argument (argument 0)
   status = clSetKernelArg(align_kernel_pre_2d, 0, sizeof(cl_mem), &read);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 1\n");
+
   status = clSetKernelArg(align_kernel_pre_2d, 1, sizeof(cl_mem), &read_len);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 2\n");
   status = clSetKernelArg(align_kernel_pre_2d, 2, sizeof(cl_mem), &read_ptr);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 3\n");
   // status = clSetKernelArg(align_kernel_pre_2d, 3, sizeof(cl_mem), &n_events);
   // checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
   status = clSetKernelArg(align_kernel_pre_2d, 3, sizeof(cl_mem), &event_ptr);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 4\n");
   status = clSetKernelArg(align_kernel_pre_2d, 4, sizeof(cl_mem), &model);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 5\n");
-  // fprintf(stderr, "n_bam_rec %d\n", n_bam_rec);
   status = clSetKernelArg(align_kernel_pre_2d, 5, sizeof(int32_t), &n_bam_rec);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 6\n");
   status = clSetKernelArg(align_kernel_pre_2d, 6, sizeof(cl_mem), &model_kmer_cache);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 7\n");
   status = clSetKernelArg(align_kernel_pre_2d, 7, sizeof(cl_mem), &bands);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 8\n");
   status = clSetKernelArg(align_kernel_pre_2d, 8, sizeof(cl_mem), &trace);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-  // fprintf(stderr, "Before Pre 9\n");
   status = clSetKernelArg(align_kernel_pre_2d, 9, sizeof(cl_mem), &band_lower_left);
   checkError(status, "Failed to set kernel args to align_kernel_pre_2d");
-
-  // fprintf(stderr, "Pre - args set\n");
 
   assert(BLOCK_LEN_BANDWIDTH >= ALN_BANDWIDTH);
 
@@ -566,27 +553,26 @@ void align_ocl(core_t *core, db_t *db)
   if (core->opt.verbosity > 0)
     printf("Calling Pre kernel\n");
 
-  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, NULL, gridpre, blockpre, 0, NULL, &event);
+  clEnqueueNDRangeKernel(queue, align_kernel_pre_2d, 2, NULL, gridpre, blockpre, 0, NULL, NULL);
   status = clFinish(queue);
   checkError(status, "Failed to finish");
 
+  // status = clReleaseEvent(event);
+  // checkError(status, "Failed to release event");
   //********** Pre-Kernel execution time *************************
 
-  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  total_time_pre_kernel = (cl_double)(end - start);
-
-  status = clReleaseEvent(event);
-  checkError(status, "Failed to release event");
+  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  // total_time_pre_kernel += (cl_double)(end - start);
+  // clReleaseEvent(event);
 
   // if (core->opt.verbosity > 1)
   //   fprintf(stderr, "[%s::%.3f*%.2f] align-pre kernel done\n", __func__, realtime() - realtime1, cputime() / (realtime() - realtime1));
-  align_kernel_time += total_time_pre_kernel;
-  align_pre_kernel_time += total_time_pre_kernel;
+  align_kernel_time += (realtime() - realtime1);
+  align_pre_kernel_time += (realtime() - realtime1);
 
   realtime1 = realtime();
 
-  // fprintf(stderr, "Before core\n");
   //******************************************************************************************************
   /*core kernel*/
   //******************************************************************************************************
@@ -617,34 +603,35 @@ void align_ocl(core_t *core, db_t *db)
 
   assert(BLOCK_LEN_BANDWIDTH >= ALN_BANDWIDTH);
 
-  const size_t grid1[2] = {BLOCK_LEN_BANDWIDTH, (size_t)(db->n_bam_rec + BLOCK_LEN_READS - 1)}; //global
-  const size_t block1[2] = {BLOCK_LEN_BANDWIDTH, BLOCK_LEN_READS};                              //local
+  const size_t grid1[3] = {1, 1, 1};  //global
+  const size_t block1[3] = {1, 1, 1}; //local
 
   if (core->opt.verbosity > 1)
     fprintf(stderr, "grid_core %zu,%zu, block_core %zu,%zu\n", grid1[0], grid1[1], block1[0], block1[1]);
   if (core->opt.verbosity > 0)
     printf("Calling core kernel\n");
 
-  clEnqueueNDRangeKernel(queue, align_kernel_core_2d_shm, 2, NULL, grid1, block1, 0, NULL, &event);
+  clEnqueueNDRangeKernel(queue, align_kernel_core_2d_shm, 1, NULL, grid1, block1, 0, NULL, NULL);
   status = clFinish(queue);
   checkError(status, "Failed to finish");
 
+  // status = clReleaseEvent(event);
+  // checkError(status, "Failed to release event");
   //********** Core-Kernel execution time *************************
 
-  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  total_time_core_kernel = (cl_double)(end - start);
-  status = clReleaseEvent(event);
-  checkError(status, "Failed to release event");
+  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  // total_time_core_kernel += (cl_double)(end - start);
+  // clReleaseEvent(event);
 
-  align_kernel_time += total_time_core_kernel;
-  align_core_kernel_time += total_time_core_kernel;
+  align_kernel_time += (realtime() - realtime1);
+  align_core_kernel_time += (realtime() - realtime1);
   realtime1 = realtime();
 
   //******************************************************************************************************
   /*post kernel*/
   //******************************************************************************************************
-  // fprintf(stderr, "Before Post\n");
+
   // Set the kernel argument (argument 0)
   status = clSetKernelArg(align_kernel_post, 0, sizeof(cl_mem), &event_align_pairs);
   checkError(status, "Failed to set kernel args to align_kernel_post");
@@ -683,22 +670,23 @@ void align_ocl(core_t *core, db_t *db)
 
   if (core->opt.verbosity > 0)
     printf("Calling post kernel. 'WARP_HACK' not set\n");
-  clEnqueueNDRangeKernel(queue, align_kernel_post, 1, NULL, gridpost, blockpost, 0, NULL, &event);
+  clEnqueueNDRangeKernel(queue, align_kernel_post, 1, NULL, gridpost, blockpost, 0, NULL, NULL);
 
 #endif
   status = clFinish(queue);
   checkError(status, "Failed to finish");
 
+  // status = clReleaseEvent(event);
+  // checkError(status, "Failed to release event");
   //********** Post-Kernel execution time *************************
 
-  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-  clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-  total_time_post_kernel = (cl_double)(end - start);
-  status = clReleaseEvent(event);
-  checkError(status, "Failed to release event");
+  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+  // clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+  // total_time_post_kernel += (cl_double)(end - start);
+  // clReleaseEvent(event);
 
-  align_kernel_time += total_time_post_kernel;
-  align_post_kernel_time += total_time_post_kernel;
+  align_kernel_time += (realtime() - realtime1);
+  align_post_kernel_time += (realtime() - realtime1);
 
   realtime1 = realtime();
 
@@ -820,15 +808,15 @@ bool init()
 
 // Create the program.
 #ifdef SEPARATE_KERNELS
-  std::string binary_file1 = getBoardBinaryFile("align_pre", device);
+  std::string binary_file1 = getBoardBinaryFile("pre", device);
   printf("Using AOCX: %s\n", binary_file1.c_str());
   program1 = createProgramFromBinary(context, binary_file1.c_str(), &device, 1);
 
-  std::string binary_file2 = getBoardBinaryFile("align_core", device);
+  std::string binary_file2 = getBoardBinaryFile("core", device);
   printf("Using AOCX: %s\n", binary_file2.c_str());
   program2 = createProgramFromBinary(context, binary_file2.c_str(), &device, 1);
 
-  std::string binary_file3 = getBoardBinaryFile("align_post", device);
+  std::string binary_file3 = getBoardBinaryFile("post", device);
   printf("Using AOCX: %s\n", binary_file3.c_str());
   program3 = createProgramFromBinary(context, binary_file3.c_str(), &device, 1);
 #else

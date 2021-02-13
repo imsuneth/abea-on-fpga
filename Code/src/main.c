@@ -103,7 +103,7 @@ int check_event_align_pairs(AlignedPair *pair_1, AlignedPair *pair_2, int32_t si
 
 int main()
 {
-    const char *align_args_dump_dir = "dump_test";
+    const char *align_args_dump_dir = "dump_small_1";
 
     db_t *db;
     db = (db_t *)malloc(sizeof(db_t));

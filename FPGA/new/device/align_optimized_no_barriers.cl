@@ -402,7 +402,7 @@ align_kernel_core_2d_shm(
   // }
   // __syncthreads(); //CUDA
   // printf("IN CORE KERNEL - IN LOOP - before barrier 0!\n");
-  barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+  // barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
   // printf("IN CORE KERNEL - IN LOOP - after barrier 0!\n");
 
   /*
@@ -525,7 +525,7 @@ align_kernel_core_2d_shm(
     // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 1!\n");
-    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+    // barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); // OpenCL
     // printf("IN CORE KERNEL - IN LOOP - after barrier 1!\n");
 
     int kmer_min_offset;
@@ -550,7 +550,7 @@ align_kernel_core_2d_shm(
     // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 2!\n");
-    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+    // barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
     // printf("IN CORE KERNEL - IN LOOP - after barrier 2!\n");
     // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
     // if (offset >= min_offset && offset < max_offset) {
@@ -642,7 +642,7 @@ align_kernel_core_2d_shm(
     // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 3!\n");
-    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+    // barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); // OpenCL
     // printf("IN CORE KERNEL - IN LOOP - after barrier 3!\n");
 
     // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
@@ -665,7 +665,7 @@ align_kernel_core_2d_shm(
     // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 4!\n");
-    barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
+    // barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); // OpenCL
     // printf("IN CORE KERNEL - IN LOOP - after barrier 4!\n");
 
     // printf("IN CORE KERNEL - After loop!\n");

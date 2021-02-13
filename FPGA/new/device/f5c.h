@@ -22,41 +22,39 @@
 
 /* hard coded numbers*/
 #define KMER_SIZE 6 //hard coded for now; todo : change to dynamic?
-#define NUM_KMER 4096   //num k-mers for 6-mers DNA
-#define NUM_KMER_METH 15625 //number k-mers for 6-mers with methylated C
+// #define NUM_KMER 4096       //num k-mers for 6-mers DNA
+// #define NUM_KMER_METH 15625 //number k-mers for 6-mers with methylated C
 //#define HAVE_CUDA 1 //if compiled for CUDA or not
 #define ALN_BANDWIDTH 100 // the band size in adaptive_banded_dynamic_alignment
 
 /*flags related to the user specified options (opt_t)*/
-#define F5C_PRINT_RAW 0x001     //print the raw signal to stdio
-#define F5C_SECONDARY_YES 0x002 //consider secondary reads
-#define F5C_SKIP_UNREADABLE 0x004 //Skip unreadable fast5 and continue rather than exiting
-#define F5C_PRINT_EVENTS 0x008 //print the event table
-#define F5C_PRINT_BANDED_ALN 0x010 //print the event alignment
-#define F5C_PRINT_SCALING 0x020 //print the estimated scalings
-#define F5C_DISABLE_CUDA 0x040 //disable cuda (only when compile for cuda)
+// #define F5C_PRINT_RAW 0x001        //print the raw signal to stdio
+// #define F5C_SECONDARY_YES 0x002    //consider secondary reads
+// #define F5C_SKIP_UNREADABLE 0x004  //Skip unreadable fast5 and continue rather than exiting
+// #define F5C_PRINT_EVENTS 0x008     //print the event table
+// #define F5C_PRINT_BANDED_ALN 0x010 //print the event alignment
+// #define F5C_PRINT_SCALING 0x020    //print the estimated scalings
+// #define F5C_DISABLE_CUDA 0x040     //disable cuda (only when compile for cuda)
 //#define F5C_DEBUG_BRK 0x080 //break after the first batch //removed can be reused
-#define F5C_SEC_PROF 0x100 //profile section by section (only effective on the CPU mode)
-#define F5C_WR_RAW_DUMP 0x200 //to say if we should write the raw dump of the fast5
-#define F5C_RD_RAW_DUMP 0x400 //to say if we should read the raw dump fof the fast5
-#define F5C_SAM 0x800 // write output in SAM format (eventalign only)
-#define F5C_SCALE_EVENTS 0x1000 // scale events to the model, rather than vice-versa (eventalign only)
-#define F5C_PRINT_RNAME 0x2000 // print read names instead of indexes (eventalign only)
-#define F5C_PRINT_SAMPLES 0x4000 //write the raw samples for the event to the tsv output (eventalign only)
-
+// #define F5C_SEC_PROF 0x100       //profile section by section (only effective on the CPU mode)
+// #define F5C_WR_RAW_DUMP 0x200    //to say if we should write the raw dump of the fast5
+// #define F5C_RD_RAW_DUMP 0x400    //to say if we should read the raw dump fof the fast5
+// #define F5C_SAM 0x800            // write output in SAM format (eventalign only)
+// #define F5C_SCALE_EVENTS 0x1000  // scale events to the model, rather than vice-versa (eventalign only)
+// #define F5C_PRINT_RNAME 0x2000   // print read names instead of indexes (eventalign only)
+// #define F5C_PRINT_SAMPLES 0x4000 //write the raw samples for the event to the tsv output (eventalign only)
 
 /*flags for a read status (related to db_t->read_stat_flag)*/
-#define FAILED_CALIBRATION 0x001 //if the calibration failed
-#define FAILED_ALIGNMENT 0x002 //if the alignment failed
-#define FAILED_QUALITY_CHK  0x004 //if the quality check failed
-
+// #define FAILED_CALIBRATION 0x001 //if the calibration failed
+// #define FAILED_ALIGNMENT 0x002   //if the alignment failed
+// #define FAILED_QUALITY_CHK 0x004 //if the quality check failed
 
 /* other hard coded options */
 
 /*CPU thread scheduling options for multithreading framework for processing*/
-#define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
-#define STEAL_THRESH 1 //stealing threshold for the CPU only sections
-#define STEAL_THRESH_CUDA 0 //stealing threshold for the CPU part in a GPU accelerated workload
+// #define WORK_STEAL 1        //simple work stealing enabled or not (no work stealing mean no load balancing)
+// #define STEAL_THRESH 1      //stealing threshold for the CPU only sections
+// #define STEAL_THRESH_CUDA 0 //stealing threshold for the CPU part in a GPU accelerated workload
 
 //set if input, processing and output are not to be interleaved (serial mode) - useful for debugging
 //#define IO_PROC_NO_INTERLEAVE 1
@@ -67,14 +65,16 @@
 #define CACHED_LOG 1 //if the log values of scalings and the model k-mers are cached
 //#define LOAD_SD_MEANSSTDV 1 //if the sd_mean and the sd_stdv is to be loaded (they are unused anyway)
 
-#define ESL_LOG_SUM 1 // enable the fast log sum for HMM
+// #define ESL_LOG_SUM 1 // enable the fast log sum for HMM
 
 typedef uchar uint8_t;
 typedef uint uint32_t;
 typedef int int32_t;
 typedef long int64_t;
 typedef char int8_t;
-typedef ulong uint64_t ;
+typedef ulong uint64_t;
+
+typedef ulong size_t;
 
 typedef int64_t ptr_t;
 
@@ -107,26 +107,28 @@ typedef int64_t ptr_t;
 // } opt_t;
 
 // a single event : adapted from taken from scrappie
-typedef struct {
+typedef struct
+{
     uint64_t start;
     float length; //todo : cant be made int?
     float mean;
     float stdv;
     //int32_t pos;   //todo : always -1 can be removed
     //int32_t state; //todo : always -1 can be removed
-} event1_t;
+} __attribute__((aligned(4))) event1_t;
 
 // event table : adapted from scrappie
-typedef struct {
+typedef struct
+{
     size_t n;     //todo : int32_t not enough?
     size_t start; //todo : always 0?
     size_t end;   //todo : always equal to n?
-    event1_t* event;
-} event_table;
-
+    event1_t *event;
+} __attribute__((aligned(4))) event_table;
 
 //k-mer model
-typedef struct {
+typedef struct
+{
     float level_mean;
     float level_stdv;
 
@@ -135,15 +137,16 @@ typedef struct {
     float level_log_stdv;
 #endif
 
-#ifdef LOAD_SD_MEANSSTDV
-    //float sd_mean;
-    //float sd_stdv;
-    //float weight;
+// #ifdef LOAD_SD_MEANSSTDV
+//float sd_mean;
+//float sd_stdv;
+//float weight;
 #endif
-} model_t;
+} __attribute__((aligned(4))) model_t;
 
 //scaling parameters for the signal : taken from nanopolish
-typedef struct {
+typedef struct
+{
     // direct parameters that must be set
     float scale;
     float shift;
@@ -158,27 +161,28 @@ typedef struct {
 #endif
     //float scaled_var;
     //float log_scaled_var;
-} scalings_t;
+} __attribute__((aligned(4))) scalings_t;
 
 //from nanopolish
-typedef struct {
-        int event_idx;
-        int kmer_idx;
-} EventKmerPair;
+typedef struct
+{
+    int event_idx;
+    int kmer_idx;
+} __attribute__((aligned(4))) EventKmerPair;
 
 //from nanopolish
-typedef struct {
+typedef struct
+{
     int ref_pos;
     int read_pos;
-} AlignedPair;
+} __attribute__((aligned(4))) AlignedPair;
 
 //from nanopolish
-typedef struct {
-    int32_t start;
-    int32_t stop; // inclusive
-} index_pair_t;
-
-
+// typedef struct
+// {
+//     int32_t start;
+//     int32_t stop; // inclusive
+// } index_pair_t;
 
 //from nanopolish
 // typedef struct {
@@ -253,8 +257,6 @@ typedef struct {
 //     int reference_span;
 // }EventalignSummary;
 
-
-
 // a data batch (dynamic data based on the reads)
 // typedef struct {
 //     // region string
@@ -312,7 +314,6 @@ typedef struct {
 //     //TODO : convert this to a C array and get rid of include <vector>
 //     std::vector<event_alignment_t> **event_alignment_result;
 
-
 // } db_t;
 
 //cuda core data structure : allocated array pointers
@@ -345,7 +346,6 @@ typedef struct {
 //     //dynamic arrays
 //     uint64_t max_sum_read_len;
 //     uint64_t max_sum_n_events;
-
 
 //     } cuda_data_t;
 // #endif
@@ -399,7 +399,6 @@ typedef struct {
 //     double align_time;
 //     double est_scale_time;
 //     double meth_time;
-
 
 // #ifdef HAVE_CUDA
 
@@ -520,6 +519,4 @@ typedef struct {
 
 /* Function prototypes for other non-major functions are in f5cmisc.h (and f5cmisc.cuh for CUDA)*/
 
-#endif
-
-
+// #endif

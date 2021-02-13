@@ -45,11 +45,7 @@ inline uint32_t get_kmer_rank(__global char *str, uint32_t k) {
   for (uint32_t i = 0; i < k; ++i) {
     // r += rank(str[k - i - 1]) * p;
     // p *= size();
-    r += get_rank(str[k - i - 1]) << (i << 1); //<--Optimize
-                                               /*
-                                                   Attr           Stall  Occu   BW_Eff
-                                                   global{DDR},R  60.13% 50.6%  12%%
-                                                   */
+    r += get_rank(str[k - i - 1]) << (i << 1);
   }
   return r;
 }
@@ -230,35 +226,20 @@ align_kernel_pre_2d(__global char *restrict read,
         __global char *substring = &sequence[i];
 
         uint32_t kmer_ranks = get_kmer_rank(substring, KMER_SIZE);
-        model_kmer_cache[i] = models[kmer_ranks]; //<--Optimize -pre
-                                                  /*
-                                                  i  Attr           Stall   Occu    BW_Eff
-                                                  0: global{DDR},R  0.48%   50.6%   100%
-                                                  1: global{DDR},W  31.13%  50.6%   21.06%
-                                                  */
+        model_kmer_cache[i] = models[kmer_ranks];
       }
     }
 
     if (tid < bandwidth) {
       for (int32_t i = 0; i < 3; i++) {
-        BAND_ARRAY(i, tid) = -INFINITY; //<--Optimize -pre
-                                        /*
-                                        i  Attr           Stall Occu  BW_Eff
-                                        0: global{DDR},W  2.50% 1.5%  42.55%
-                                        1: global{DDR},W  2.69% 1.5%  42.55%
-                                        2: global{DDR},W  2.83% 1.5%  42.55%
-                                        */
+        BAND_ARRAY(i, tid) = -INFINITY;
         // TRACE_ARRAY(i,tid) = 0;
       }
     }
 
     if (tid == 0) {
       // initialize range of first two bands
-      band_lower_left[0].event_idx = half_bandwidth - 1; //<--Optimize -pre
-                                                         /*
-                                                           Attr           Stall  Occu  BW_Eff
-                                                           global{DDR},W  0.32%  1.5%  26.67%
-                                                           */
+      band_lower_left[0].event_idx = half_bandwidth - 1;
       band_lower_left[0].kmer_idx = -1 - half_bandwidth;
       // band_lower_left[1] = move_down(band_lower_left[0]);
       band_lower_left[1].event_idx = band_lower_left[0].event_idx + 1;
@@ -267,27 +248,14 @@ align_kernel_pre_2d(__global char *restrict read,
       int start_cell_offset = band_kmer_to_offset(0, -1);
       // assert(is_offset_valid(start_cell_offset));
       // assert(band_event_to_offset(0, -1) == start_cell_offset);
-      BAND_ARRAY(0, start_cell_offset) = 0.0f; //<--Optimize -pre
-                                               /*
-                                                 Attr           Stall  Occu  BW_Eff
-                                                 global{DDR},W  0.76%  1.5%  7.69%
-                                                 */
+      BAND_ARRAY(0, start_cell_offset) = 0.0f;
 
       // band 1: first event is trimmed
       int first_trim_offset = band_event_to_offset(1, 0);
       // assert(kmer_at_offset(1, first_trim_offset) == -1);
       // assert(is_offset_valid(first_trim_offset));
-      BAND_ARRAY(1, first_trim_offset) = lp_trim; //<--Optimize -pre
-                                                  /*
-                                                    Attr           Stall  Occu  BW_Eff
-                                                    global{DDR},W  0.79%  1.5%  7.69%
-                                                    */
-
-      TRACE_ARRAY(1, first_trim_offset) = FROM_U; //<--Optimize -pre
-                                                  /*
-                                                    Attr           Stall  Occu  BW_Eff
-                                                    global{DDR},W  0.79%  1.5%  7.69%
-                                                    */
+      BAND_ARRAY(1, first_trim_offset) = lp_trim;
+      TRACE_ARRAY(1, first_trim_offset) = FROM_U;
 
       // int fills = 0;
 #ifdef DEBUG_ADAPTIVE
@@ -326,6 +294,7 @@ align_kernel_core_2d_shm(
     __global uint8_t *restrict traces,
     __global EventKmerPair *restrict band_lower_lefts) {
 
+  //
   // printf("IN CORE KERNEL!\n");
   // CUDA
   // int i = blockDim.y * blockIdx.y + threadIdx.y;
@@ -339,31 +308,25 @@ align_kernel_core_2d_shm(
   // if (offset == 0)
   //   printf("Completion:%lu\n", i);
 
-  __local float bands_shm[3][128];
+  __local float bands_shm[3][ALN_BANDWIDTH];
   // __local float bands_shm[ALN_BANDWIDTH][3];
   __local EventKmerPair band_lower_left_shm[3];
 
-  //************Optimizaion ******/
-  // __attribute__((local_mem_size(1024))) __local float * B
-
   // printf("IN CORE KERNEL - IN IF CONDITION!\n");
 
-  ptr_t event_ptr_i = event_ptr[i];
-  ptr_t read_ptr_i = read_ptr[i];
-
   int32_t sequence_len = read_len[i];
-  __global event1_t *events = &event_table[event_ptr_i];
-  int32_t n_events = n_events1[i];
+  __global event1_t *events = &event_table[event_ptr[i]];
+  int32_t n_event = n_events1[i];
   scalings_t scaling = scalings[i];
-  __global model_t *model_kmer_cache = &model_kmer_caches[read_ptr_i];
-  ptr_t band_trace_i = (read_ptr_i + event_ptr_i) * ALN_BANDWIDTH;
-  __global float *bands = &band[band_trace_i];
-  __global uint8_t *trace = &traces[band_trace_i];
+  __global model_t *model_kmer_cache = &model_kmer_caches[read_ptr[i]];
+  __global float *bands = &band[(read_ptr[i] + event_ptr[i]) * ALN_BANDWIDTH];
+  __global uint8_t *trace =
+      &traces[(read_ptr[i] + event_ptr[i]) * ALN_BANDWIDTH];
   __global EventKmerPair *band_lower_left =
-      &band_lower_lefts[read_ptr_i + event_ptr_i];
+      &band_lower_lefts[read_ptr[i] + event_ptr[i]];
 
   // size_t n_events = events[strand_idx].n;
-  // int32_t n_events = n_event;
+  int32_t n_events = n_event;
   int32_t n_kmers = sequence_len - KMER_SIZE + 1;
   // fprintf(stderr,"n_kmers : %d\n",n_kmers);
 
@@ -391,36 +354,20 @@ align_kernel_core_2d_shm(
   int32_t n_cols = n_kmers + 1;
   int32_t n_bands = n_rows + n_cols;
 
-  // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
-  BAND_ARRAY_SHM(0, offset) = BAND_ARRAY(2, offset);
-  BAND_ARRAY_SHM(1, offset) = BAND_ARRAY(1, offset);
-  BAND_ARRAY_SHM(2, offset) = BAND_ARRAY(0, offset);
+  if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+    BAND_ARRAY_SHM(0, offset) = BAND_ARRAY(2, offset);
+    BAND_ARRAY_SHM(1, offset) = BAND_ARRAY(1, offset);
+    BAND_ARRAY_SHM(2, offset) = BAND_ARRAY(0, offset);
 
-  band_lower_left_shm[0] = band_lower_left[2];
-  band_lower_left_shm[1] = band_lower_left[1];
-  band_lower_left_shm[2] = band_lower_left[0];
-  // }
+    band_lower_left_shm[0] = band_lower_left[2];
+    band_lower_left_shm[1] = band_lower_left[1];
+    band_lower_left_shm[2] = band_lower_left[0];
+  }
   // __syncthreads(); //CUDA
   // printf("IN CORE KERNEL - IN LOOP - before barrier 0!\n");
   barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
   // printf("IN CORE KERNEL - IN LOOP - after barrier 0!\n");
 
-  /*
-      CLK_LOCAL_MEM_FENCE: The barrier function
-      will either flush any variables stored in local
-      memory or queue a memory fence to ensure
-      correct ordering of memory operations to local
-      memory.
-
-      \u2022 CLK_GLOBAL_MEM_FENCE: The barrier function
-      will either flush any variables stored in global
-      memory or queue a memory fence to ensure
-      correct ordering of memory operations to
-      global memory. This is needed when work-
-      items in a work-group, for example, write to a
-      buffer object in global memory and then read
-      the updated data.
-  */
   // printf("IN CORE KERNEL - Before loop!\n");
   // fill in remaining bands
   //#pragma unroll
@@ -429,100 +376,55 @@ align_kernel_core_2d_shm(
     // priclntf("Core Kernel - i: %lu, band_idx: %d\n", i, band_idx);
 
     // printf("IN CORE KERNEL - In loop!\n");
-    // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
-    if (offset == 0) {
-      // Determine placement of this band according to Suzuki's adaptive
-      // algorithm When both ll and ur are out-of-band (ob) we alternate
-      // movements otherwise we decide based on scores
-      // float ll = BAND_ARRAY((band_idx - 1), 0);
-      float ll = BAND_ARRAY_SHM((1), 0);
-      // float ur = BAND_ARRAY((band_idx - 1),(bandwidth - 1));
-      float ur = BAND_ARRAY_SHM((1), (bandwidth - 1));
-      bool ll_ob = ll == -INFINITY;
-      bool ur_ob = ur == -INFINITY;
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+      if (offset == 0) {
+        // Determine placement of this band according to Suzuki's adaptive
+        // algorithm When both ll and ur are out-of-band (ob) we alternate
+        // movements otherwise we decide based on scores
+        // float ll = BAND_ARRAY((band_idx - 1), 0);
+        float ll = BAND_ARRAY_SHM((1), 0);
+        // float ur = BAND_ARRAY((band_idx - 1),(bandwidth - 1));
+        float ur = BAND_ARRAY_SHM((1), (bandwidth - 1));
+        bool ll_ob = ll == -INFINITY;
+        bool ur_ob = ur == -INFINITY;
 
-      bool right = false;
-      if (ll_ob && ur_ob) {
-        right = band_idx % 2 == 1;
-      } else {
-        right = ll < ur; // Suzuki's rule
-      }
-
-      EventKmerPair bllshm1 = band_lower_left_shm[1];
-      EventKmerPair bllshm2 = bllshm1;
-
-      if (right) {
-        // VER 0
-        // band_lower_left[band_idx] = band_lower_left_shm[0] =
-        //     move_right(band_lower_left_shm[1]);
-
-        // VER 1
-        // band_lower_left[band_idx].kmer_idx =
-        // band_lower_left_shm[0].kmer_idx =
-        //     band_lower_left_shm[1].kmer_idx + 1; //<--Optimize -core
-        /*
-        i  Attr           Stall Occu   BW_Eff
-        0: local R        0.00% 42.4%  --
-        1: local W        4.12% 42.4%  --
-        2: global{DDR},W  4.08% 42.4%  12.60%
-        */
-
-        // band_lower_left[band_idx].event_idx =
-        //     band_lower_left_shm[0].event_idx =
-        //         band_lower_left_shm[1].event_idx;
-
-        // VER 2
-        bllshm1.kmer_idx += 1;
-        band_lower_left[band_idx] = bllshm1;
-        band_lower_left_shm[0] = bllshm1;
-
-      } else {
-        // VER 0
-        // band_lower_left[band_idx] = band_lower_left_shm[0] =
-        //     move_down(band_lower_left_shm[1]);
-
-        // VER 1
-        // band_lower_left[band_idx].event_idx =
-        //     band_lower_left_shm[0].event_idx =
-        //         band_lower_left_shm[1].event_idx + 1; //<--Optimize -core
-        /*
-        i  Attr           Stall Occu   BW_Eff
-        0: local W        4.94% 42.4%  --
-        1: global{DDR} R  2.54% 42.4%  6.25%
-        */
-        // band_lower_left[band_idx].kmer_idx =
-        // band_lower_left_shm[0].kmer_idx =
-        //     band_lower_left_shm[1].kmer_idx;
-
-        // VER 2
-        bllshm2.event_idx += 1;
-        band_lower_left[band_idx] = bllshm2;
-        band_lower_left_shm[0] = bllshm2;
-      }
-      // If the trim state is within the band, fill it in here
-      int trim_offset = band_kmer_to_offset_shm(0, -1);
-      if (is_offset_valid(trim_offset)) {
-        int32_t event_idx = event_at_offset_shm(0, trim_offset);
-        if (event_idx >= 0 && event_idx < n_events) {
-          // BAND_ARRAY(band_idx,trim_offset) = lp_trim * (event_idx + 1);
-          BAND_ARRAY_SHM(0, trim_offset) =
-              lp_trim * (event_idx + 1);               //<--Optimize -core
-                                                       /*
-                                                       Attr           Stall Occu   BW_Eff
-                                                       local W        0.00% 42.4%  --
-                                                       */
-          TRACE_ARRAY(band_idx, trim_offset) = FROM_U; //<--Optimize -core
-                                                       /*
-                                                       Attr           Stall Occu   BW_Eff
-                                                       global{DDR} W  0.18% 42.4%  5.88%
-                                                       */
+        bool right = false;
+        if (ll_ob && ur_ob) {
+          right = band_idx % 2 == 1;
         } else {
-          // BAND_ARRAY(band_idx,trim_offset) = -INFINITY;
-          BAND_ARRAY_SHM(0, trim_offset) = -INFINITY;
+          right = ll < ur; // Suzuki's rule
+        }
+
+        if (right) {
+          // band_lower_left[band_idx] = band_lower_left_shm[0] =
+          //     move_right(band_lower_left_shm[1]);
+
+          band_lower_left_shm[0].kmer_idx = band_lower_left_shm[1].kmer_idx + 1;
+
+          band_lower_left_shm[0].event_idx = band_lower_left_shm[1].event_idx;
+        } else {
+          // band_lower_left[band_idx] = band_lower_left_shm[0] =
+          //     move_down(band_lower_left_shm[1]);
+
+          band_lower_left_shm[0].event_idx =
+              band_lower_left_shm[1].event_idx + 1;
+          band_lower_left_shm[0].kmer_idx = band_lower_left_shm[1].kmer_idx;
+        }
+        // If the trim state is within the band, fill it in here
+        int trim_offset = band_kmer_to_offset_shm(0, -1);
+        if (is_offset_valid(trim_offset)) {
+          int32_t event_idx = event_at_offset_shm(0, trim_offset);
+          if (event_idx >= 0 && event_idx < n_events) {
+            // BAND_ARRAY(band_idx,trim_offset) = lp_trim * (event_idx + 1);
+            BAND_ARRAY_SHM(0, trim_offset) = lp_trim * (event_idx + 1);
+
+          } else {
+            // BAND_ARRAY(band_idx,trim_offset) = -INFINITY;
+            BAND_ARRAY_SHM(0, trim_offset) = -INFINITY;
+          }
         }
       }
     }
-    // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 1!\n");
     barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
@@ -534,135 +436,127 @@ align_kernel_core_2d_shm(
     int event_max_offset;
     int min_offset;
     int max_offset;
-    // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
-    // Get the offsets for the first and last event and kmer
-    // We restrict the inner loop to only these values
-    kmer_min_offset = band_kmer_to_offset_shm(0, 0);
-    kmer_max_offset = band_kmer_to_offset_shm(0, n_kmers);
-    event_min_offset = band_event_to_offset_shm(0, n_events - 1);
-    event_max_offset = band_event_to_offset_shm(0, -1);
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+      // Get the offsets for the first and last event and kmer
+      // We restrict the inner loop to only these values
+      kmer_min_offset = band_kmer_to_offset_shm(0, 0);
+      kmer_max_offset = band_kmer_to_offset_shm(0, n_kmers);
+      event_min_offset = band_event_to_offset_shm(0, n_events - 1);
+      event_max_offset = band_event_to_offset_shm(0, -1);
 
-    min_offset = MAX(kmer_min_offset, event_min_offset);
-    min_offset = MAX(min_offset, 0);
+      min_offset = MAX(kmer_min_offset, event_min_offset);
+      min_offset = MAX(min_offset, 0);
 
-    max_offset = MIN(kmer_max_offset, event_max_offset);
-    max_offset = MIN(max_offset, bandwidth);
-    // }
+      max_offset = MIN(kmer_max_offset, event_max_offset);
+      max_offset = MIN(max_offset, bandwidth);
+    }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 2!\n");
     barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
     // printf("IN CORE KERNEL - IN LOOP - after barrier 2!\n");
-    // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
-    // if (offset >= min_offset && offset < max_offset) {
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+      if (offset >= min_offset && offset < max_offset) {
 
-    int event_idx = event_at_offset_shm(0, offset);
-    int kmer_idx = kmer_at_offset_shm(0, offset);
+        int event_idx = event_at_offset_shm(0, offset);
+        int kmer_idx = kmer_at_offset_shm(0, offset);
 
-    // int32_t kmer_rank = kmer_ranks[kmer_idx];
+        // int32_t kmer_rank = kmer_ranks[kmer_idx];
 
-    int offset_up = band_event_to_offset_shm(1, event_idx - 1);
-    int offset_left = band_kmer_to_offset_shm(1, kmer_idx - 1);
-    int offset_diag = band_kmer_to_offset_shm(2, kmer_idx - 1);
+        int offset_up = band_event_to_offset_shm(1, event_idx - 1);
+        int offset_left = band_kmer_to_offset_shm(1, kmer_idx - 1);
+        int offset_diag = band_kmer_to_offset_shm(2, kmer_idx - 1);
 
 #ifdef DEBUG_ADAPTIVE
-    // verify loop conditions
-    assert(kmer_idx >= 0 && kmer_idx < n_kmers);
-    assert(event_idx >= 0 && event_idx < n_events);
-    assert(offset_diag == band_event_to_offset_shm(2, event_idx - 1));
-    assert(offset_up - offset_left == 1);
-    assert(offset >= 0 && offset < bandwidth);
+        // verify loop conditions
+        assert(kmer_idx >= 0 && kmer_idx < n_kmers);
+        assert(event_idx >= 0 && event_idx < n_events);
+        assert(offset_diag == band_event_to_offset_shm(2, event_idx - 1));
+        assert(offset_up - offset_left == 1);
+        assert(offset >= 0 && offset < bandwidth);
 #endif // DEBUG_ADAPTIVE
 
-    float up =
-        is_offset_valid(offset_up) ? BAND_ARRAY_SHM(1, offset_up) : -INFINITY;
-    float left = is_offset_valid(offset_left) ? BAND_ARRAY_SHM(1, offset_left)
+        float up = is_offset_valid(offset_up) ? BAND_ARRAY_SHM(1, offset_up)
                                               : -INFINITY;
-    float diag = is_offset_valid(offset_diag) ? BAND_ARRAY_SHM(2, offset_diag)
-                                              : -INFINITY;
+        float left = is_offset_valid(offset_left)
+                         ? BAND_ARRAY_SHM(1, offset_left)
+                         : -INFINITY;
+        float diag = is_offset_valid(offset_diag)
+                         ? BAND_ARRAY_SHM(2, offset_diag)
+                         : -INFINITY;
 
 #ifndef PROFILE
-    float lp_emission = log_probability_match_r9(scaling, model_kmer_cache,
-                                                 events, event_idx, kmer_idx);
-    // fprintf(stderr, "lp emiision : %f , event idx %d, kmer rank %d\n",
-    // lp_emission,event_idx,kmer_rank);
+        float lp_emission = log_probability_match_r9(
+            scaling, model_kmer_cache, events, event_idx, kmer_idx);
+        // fprintf(stderr, "lp emiision : %f , event idx %d, kmer rank %d\n",
+        // lp_emission,event_idx,kmer_rank);
 #else
-    float unscaledLevel = events[event_idx].mean;
-    float scaledLevel = unscaledLevel;
-    model_t model = model_kmer_cache[kmer_idx];
-    float gp_mean = scaling.scale * model.level_mean + scaling.shift;
-    float gp_stdv = model.level_stdv; // scaling.var = 1;
+        float unscaledLevel = events[event_idx].mean;
+        float scaledLevel = unscaledLevel;
+        model_t model = model_kmer_cache[kmer_idx];
+        float gp_mean = scaling.scale * model.level_mean + scaling.shift;
+        float gp_stdv = model.level_stdv; // scaling.var = 1;
 
 #ifdef CACHED_LOG
-    float gp_log_stdv = model.level_log_stdv;
+        float gp_log_stdv = model.level_log_stdv;
 #else
 #ifndef ALIGN_KERNEL_FLOAT
-    float gp_log_stdv = log(gp_stdv);   // scaling.log_var = log(1)=0;
+        float gp_log_stdv = log(gp_stdv); // scaling.log_var = log(1)=0;
 #else
-    float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
+        float gp_log_stdv = logf(gp_stdv); // scaling.log_var = log(1)=0;
 #endif
 #endif
 
-    float a = (scaledLevel - gp_mean) / gp_stdv;
-    float lp_emission = log_inv_sqrt_2pi - gp_log_stdv + (-0.5f * a * a);
+        float a = (scaledLevel - gp_mean) / gp_stdv;
+        float lp_emission = log_inv_sqrt_2pi - gp_log_stdv + (-0.5f * a * a);
 
 #endif
 
-    float score_d = diag + lp_step + lp_emission;
-    float score_u = up + lp_stay + lp_emission;
-    float score_l = left + lp_skip;
+        float score_d = diag + lp_step + lp_emission;
+        float score_u = up + lp_stay + lp_emission;
+        float score_l = left + lp_skip;
 
-    float max_score = score_d;
-    uint8_t from = FROM_D;
+        float max_score = score_d;
+        uint8_t from = FROM_D;
 
-    max_score = score_u > max_score ? score_u : max_score;
-    from = max_score == score_u ? FROM_U : from;
-    max_score = score_l > max_score ? score_l : max_score;
-    from = max_score == score_l ? FROM_L : from;
+        max_score = score_u > max_score ? score_u : max_score;
+        from = max_score == score_u ? FROM_U : from;
+        max_score = score_l > max_score ? score_l : max_score;
+        from = max_score == score_l ? FROM_L : from;
 
 #ifdef DEBUG_ADAPTIVE
-    fprintf(stderr, "[adafill] offset-up: %d offset-diag: %d offset-left: %d\n",
-            offset_up, offset_diag, offset_left);
-    fprintf(stderr, "[adafill] up: %.2lf diag: %.2lf left: %.2lf\n", up, diag,
-            left);
-    fprintf(stderr,
-            "[adafill] bi: %d o: %d e: %d k: %d s: %.2lf f: %d emit: "
-            "%.2lf\n",
-            band_idx, offset, event_idx, kmer_idx, max_score, from,
-            lp_emission);
+        fprintf(stderr,
+                "[adafill] offset-up: %d offset-diag: %d offset-left: %d\n",
+                offset_up, offset_diag, offset_left);
+        fprintf(stderr, "[adafill] up: %.2lf diag: %.2lf left: %.2lf\n", up,
+                diag, left);
+        fprintf(stderr,
+                "[adafill] bi: %d o: %d e: %d k: %d s: %.2lf f: %d emit: "
+                "%.2lf\n",
+                band_idx, offset, event_idx, kmer_idx, max_score, from,
+                lp_emission);
 #endif // DEBUG_ADAPTIVE \
        // BAND_ARRAY(band_idx,offset) = max_score;
-    BAND_ARRAY_SHM(0, offset) = max_score;
-    TRACE_ARRAY(band_idx, offset) = from; //<--Optimize -core
-                                          /*
-                                          Attr           Stall Occu   BW_Eff
-                                          global{DDR} W  8.52% 42.4%  43.13%
-                                          */
-    // fills += 1;
-    // }
-    // }
+        BAND_ARRAY_SHM(0, offset) = max_score;
+
+        // fills += 1;
+      }
+    }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 3!\n");
     barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
     // printf("IN CORE KERNEL - IN LOOP - after barrier 3!\n");
 
-    // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
-    BAND_ARRAY(band_idx, offset) =
-        BAND_ARRAY_SHM(0, offset); //<--Optimize -core
-                                   /*
-                                   i  Attr           Stall Occu   BW_Eff
-                                   0: local R        0.00% 42.4%  --
-                                   1: global{DDR} W  5.07% 42.4%  89.31%
-                                   */
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
 
-    BAND_ARRAY_SHM(2, offset) = BAND_ARRAY_SHM(1, offset);
-    BAND_ARRAY_SHM(1, offset) = BAND_ARRAY_SHM(0, offset);
-    BAND_ARRAY_SHM(0, offset) = -INFINITY;
+      BAND_ARRAY_SHM(2, offset) = BAND_ARRAY_SHM(1, offset);
+      BAND_ARRAY_SHM(1, offset) = BAND_ARRAY_SHM(0, offset);
+      BAND_ARRAY_SHM(0, offset) = -INFINITY;
 
-    if (offset == 0) {
-      band_lower_left_shm[2] = band_lower_left_shm[1];
-      band_lower_left_shm[1] = band_lower_left_shm[0];
+      if (offset == 0) {
+        band_lower_left_shm[2] = band_lower_left_shm[1];
+        band_lower_left_shm[1] = band_lower_left_shm[0];
+      }
     }
-    // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 4!\n");
     barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
@@ -670,6 +564,174 @@ align_kernel_core_2d_shm(
 
     // printf("IN CORE KERNEL - After loop!\n");
   }
+
+  // **********************************************************************************************
+  // COPY FROM LOCAL MEMORY TO GLOBAL MEMORY
+  // **********************************************************************************************
+  for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
+
+    // priclntf("Core Kernel - i: %lu, band_idx: %d\n", i, band_idx);
+
+    // printf("IN CORE KERNEL - In loop!\n");
+    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+      if (offset == 0) {
+        // Determine placement of this band according to Suzuki's adaptive
+        // algorithm When both ll and ur are out-of-band (ob) we alternate
+        // movements otherwise we decide based on scores
+        // float ll = BAND_ARRAY((band_idx - 1), 0);
+        float ll = BAND_ARRAY_SHM((1), 0);
+        // float ur = BAND_ARRAY((band_idx - 1),(bandwidth - 1));
+        float ur = BAND_ARRAY_SHM((1), (bandwidth - 1));
+        bool ll_ob = ll == -INFINITY;
+        bool ur_ob = ur == -INFINITY;
+
+        bool right = false;
+        if (ll_ob && ur_ob) {
+          right = band_idx % 2 == 1;
+        } else {
+          right = ll < ur; // Suzuki's rule
+        }
+
+        if (right) {
+          // band_lower_left[band_idx] = band_lower_left_shm[0] =
+          //     move_right(band_lower_left_shm[1]);
+
+          band_lower_left[band_idx] = band_lower_left_shm[0];
+          band_lower_left[band_idx] = band_lower_left_shm[0];
+        } else {
+          // band_lower_left[band_idx] = band_lower_left_shm[0] =
+          //     move_down(band_lower_left_shm[1]);
+
+          band_lower_left[band_idx] = band_lower_left_shm[0];
+          band_lower_left[band_idx] = band_lower_left_shm[0];
+        }
+        // If the trim state is within the band, fill it in here
+        int trim_offset = band_kmer_to_offset_shm(0, -1);
+        if (is_offset_valid(trim_offset)) {
+          int32_t event_idx = event_at_offset_shm(0, trim_offset);
+          if (event_idx >= 0 && event_idx < n_events) {
+            // BAND_ARRAY(band_idx,trim_offset) = lp_trim * (event_idx + 1);
+            TRACE_ARRAY(band_idx, trim_offset) = FROM_U;
+          }
+        }
+      }
+
+      int kmer_min_offset;
+      int kmer_max_offset;
+      int event_min_offset;
+      int event_max_offset;
+      int min_offset;
+      int max_offset;
+
+      // Get the offsets for the first and last event and kmer
+      // We restrict the inner loop to only these values
+      kmer_min_offset = band_kmer_to_offset_shm(0, 0);
+      kmer_max_offset = band_kmer_to_offset_shm(0, n_kmers);
+      event_min_offset = band_event_to_offset_shm(0, n_events - 1);
+      event_max_offset = band_event_to_offset_shm(0, -1);
+
+      min_offset = MAX(kmer_min_offset, event_min_offset);
+      min_offset = MAX(min_offset, 0);
+
+      max_offset = MIN(kmer_max_offset, event_max_offset);
+      max_offset = MIN(max_offset, bandwidth);
+
+      if (offset >= min_offset && offset < max_offset) {
+        int event_idx = event_at_offset_shm(0, offset);
+        int kmer_idx = kmer_at_offset_shm(0, offset);
+
+        // int32_t kmer_rank = kmer_ranks[kmer_idx];
+
+        int offset_up = band_event_to_offset_shm(1, event_idx - 1);
+        int offset_left = band_kmer_to_offset_shm(1, kmer_idx - 1);
+        int offset_diag = band_kmer_to_offset_shm(2, kmer_idx - 1);
+
+#ifdef DEBUG_ADAPTIVE
+        // verify loop conditions
+        assert(kmer_idx >= 0 && kmer_idx < n_kmers);
+        assert(event_idx >= 0 && event_idx < n_events);
+        assert(offset_diag == band_event_to_offset_shm(2, event_idx - 1));
+        assert(offset_up - offset_left == 1);
+        assert(offset >= 0 && offset < bandwidth);
+#endif // DEBUG_ADAPTIVE
+
+        float up = is_offset_valid(offset_up) ? BAND_ARRAY_SHM(1, offset_up)
+                                              : -INFINITY;
+        float left = is_offset_valid(offset_left)
+                         ? BAND_ARRAY_SHM(1, offset_left)
+                         : -INFINITY;
+        float diag = is_offset_valid(offset_diag)
+                         ? BAND_ARRAY_SHM(2, offset_diag)
+                         : -INFINITY;
+
+#ifndef PROFILE
+        float lp_emission = log_probability_match_r9(
+            scaling, model_kmer_cache, events, event_idx, kmer_idx);
+        // fprintf(stderr, "lp emiision : %f , event idx %d, kmer rank %d\n",
+        // lp_emission,event_idx,kmer_rank);
+#else
+        float unscaledLevel = events[event_idx].mean;
+        float scaledLevel = unscaledLevel;
+        model_t model = model_kmer_cache[kmer_idx];
+        float gp_mean = scaling.scale * model.level_mean + scaling.shift;
+        float gp_stdv = model.level_stdv; // scaling.var = 1;
+
+#ifdef CACHED_LOG
+        float gp_log_stdv = model.level_log_stdv;
+#else
+#ifndef ALIGN_KERNEL_FLOAT
+        float gp_log_stdv = log(gp_stdv); // scaling.log_var = log(1)=0;
+#else
+        float gp_log_stdv = logf(gp_stdv); // scaling.log_var = log(1)=0;
+#endif
+#endif
+
+        float a = (scaledLevel - gp_mean) / gp_stdv;
+        float lp_emission = log_inv_sqrt_2pi - gp_log_stdv + (-0.5f * a * a);
+
+#endif
+
+        float score_d = diag + lp_step + lp_emission;
+        float score_u = up + lp_stay + lp_emission;
+        float score_l = left + lp_skip;
+
+        float max_score = score_d;
+        uint8_t from = FROM_D;
+
+        max_score = score_u > max_score ? score_u : max_score;
+        from = max_score == score_u ? FROM_U : from;
+        max_score = score_l > max_score ? score_l : max_score;
+        from = max_score == score_l ? FROM_L : from;
+        TRACE_ARRAY(band_idx, offset) = from;
+        // fills += 1;
+      }
+
+      BAND_ARRAY(band_idx, offset) = BAND_ARRAY_SHM(0, offset);
+    }
+  }
+
+  // else {
+
+  //   // printf("Deviated work item ");
+  //   // printf("i:%lu, offset:%lu\n", i, offset);
+  //   int32_t sequence_len = read_len[i];
+  //   int32_t n_event = n_events1[i];
+
+  //   int32_t n_events = n_event;
+  //   int32_t n_kmers = sequence_len - KMER_SIZE + 1;
+
+  //   // dp matrix
+  //   int32_t n_rows = n_events + 1;
+  //   int32_t n_cols = n_kmers + 1;
+  //   int32_t n_bands = n_rows + n_cols;
+  //   barrier(CLK_LOCAL_MEM_FENCE);
+  //   for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
+  //     barrier(CLK_LOCAL_MEM_FENCE);
+  //     barrier(CLK_LOCAL_MEM_FENCE);
+  //     barrier(CLK_LOCAL_MEM_FENCE);
+  //     barrier(CLK_LOCAL_MEM_FENCE);
+  //   }
+  // }
 }
 
 // //******************************************************************************************************
@@ -793,19 +855,10 @@ __kernel void align_kernel_post(
       // assert(band_idx < n_bands);
 
       //<<<<<<<<New Replacement over
-      int offset =
-          band_event_to_offset(band_idx, event_idx); //<--Optimize -post
-                                                     /*
-                                                     Attr           Stall  Occu   BW_Eff
-                                                     global{DDR} R  14.59% 5.40%  26.21%
-                                                     */
+      int offset = band_event_to_offset(band_idx, event_idx);
       if (is_offset_valid(offset)) {
-        float s = BAND_ARRAY(band_idx, offset) +
-                  (n_events - event_idx) * lp_trim; //<--Optimize -post
-                                                    /*
-                                                    Attr           Stall  Occu   BW_Eff
-                                                    global{DDR} R  20.33% 5.40%  6.26%
-                                                    */
+        float s =
+            BAND_ARRAY(band_idx, offset) + (n_events - event_idx) * lp_trim;
         if (s > max_score) {
           max_score = s;
           curr_event_idx = event_idx;
@@ -824,11 +877,7 @@ __kernel void align_kernel_post(
       // emit alignment
       //>>>>>>>New Repalcement begin
       // assert(outIndex < n_events * 2);
-      out_2[outIndex].ref_pos = curr_kmer_idx; //<--Optimize -post
-                                               /*
-                                               Attr           Stall  Occu   BW_Eff
-                                               global{DDR} W  13.14% 5.00%  12.51%
-                                               */
+      out_2[outIndex].ref_pos = curr_kmer_idx;
       out_2[outIndex].read_pos = curr_event_idx;
       outIndex++;
       // out.push_back({curr_kmer_idx, curr_event_idx});
@@ -852,11 +901,7 @@ __kernel void align_kernel_post(
       // fprintf(stderr, "lp emiision : %f , event idx %d, kmer rank %d\n",
       // lp_emission,event_idx,kmer_rank);
 #else
-      float unscaledLevel = events[curr_event_idx].mean; //<--Optimize -post
-                                                         /*
-                                                         Attr           Stall  Occu   BW_Eff
-                                                         global{DDR} R  28.31% 5.00%  15.76%
-                                                         */
+      float unscaledLevel = events[curr_event_idx].mean;
       float scaledLevel = unscaledLevel;
       model_t model = model_kmer_cache[curr_kmer_idx];
       float gp_mean = scaling.scale * model.level_mean + scaling.shift;
@@ -866,9 +911,9 @@ __kernel void align_kernel_post(
       float gp_log_stdv = model.level_log_stdv;
 #else
 #ifndef ALIGN_KERNEL_FLOAT
-      float gp_log_stdv = log(gp_stdv); // scaling.log_var = log(1)=0;
+      float gp_log_stdv = log(gp_stdv);   // scaling.log_var = log(1)=0;
 #else
-      float gp_log_stdv = logf(gp_stdv); // scaling.log_var = log(1)=0;
+      float gp_log_stdv = logf(gp_stdv);   // scaling.log_var = log(1)=0;
 #endif
 #endif
 
@@ -885,19 +930,10 @@ __kernel void align_kernel_post(
       n_aligned_events += 1;
 
       int band_idx = event_kmer_to_band(curr_event_idx, curr_kmer_idx);
-      int offset =
-          band_event_to_offset(band_idx, curr_event_idx); //<--Optimize -post
-                                                          /*
-                                                          Attr           Stall  Occu   BW_Eff
-                                                          global{DDR} R  22.48% 5.00%  27.51%
-                                                          */
+      int offset = band_event_to_offset(band_idx, curr_event_idx);
       // assert(band_kmer_to_offset(band_idx, curr_kmer_idx) == offset);
 
-      uint8_t from = TRACE_ARRAY(band_idx, offset); //<--Optimize -post
-                                                    /*
-                                                    Attr           Stall  Occu   BW_Eff
-                                                    global{DDR} R  31.88% 5.00%  1.57%
-                                                    */
+      uint8_t from = TRACE_ARRAY(band_idx, offset);
       if (from == FROM_D) {
         curr_kmer_idx -= 1;
         curr_event_idx -= 1;
@@ -918,29 +954,11 @@ __kernel void align_kernel_post(
     int c;
     int end = outIndex - 1;
     for (c = 0; c < outIndex / 2; c++) {
-      int ref_pos_temp = out_2[c].ref_pos; //<--Optimize -post
-                                           /*
-                                           Attr           Stall  Occu   BW_Eff
-                                           global{DDR} R  32.91% 2.50%  12.53%
-                                           */
+      int ref_pos_temp = out_2[c].ref_pos;
       int read_pos_temp = out_2[c].read_pos;
-      out_2[c].ref_pos = out_2[end].ref_pos;   //<--Optimize -post
-                                               /*
-                                               i  Attr           Stall  Occu   BW_Eff
-                                               0  global{DDR} R  31.77% 2.50%  6.28%
-                                               1  global{DDR} W  15.83% 2.50%  6.28%
-                                               */
-      out_2[c].read_pos = out_2[end].read_pos; //<--Optimize -post
-                                               /*
-                                               i  Attr           Stall  Occu   BW_Eff
-                                               0  global{DDR} R  31.89% 2.50%  6.28%
-                                               1  global{DDR} W  15.54% 2.50%  6.28%
-                                               */
-      out_2[end].ref_pos = ref_pos_temp;       //<--Optimize -post
-                                               /*
-                                               Attr           Stall  Occu   BW_Eff
-                                               global{DDR} W  15.41% 2.50%  12.53%
-                                               */
+      out_2[c].ref_pos = out_2[end].ref_pos;
+      out_2[c].read_pos = out_2[end].read_pos;
+      out_2[end].ref_pos = ref_pos_temp;
       out_2[end].read_pos = read_pos_temp;
       end--;
     }
@@ -960,8 +978,7 @@ __kernel void align_kernel_post(
                    out_2[outIndex - 1].ref_pos == (int)(n_kmers - 1);
 
     // assert(spanned==spanned_before_rev);
-    // bool spanned = out.front().ref_pos == 0 && out.back().ref_pos ==
-    // n_kmers
+    // bool spanned = out.front().ref_pos == 0 && out.back().ref_pos == n_kmers
     // - 1;
     //<<<<<<<<<<<<<New replacement over
 #else
