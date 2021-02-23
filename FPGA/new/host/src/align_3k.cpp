@@ -19,7 +19,7 @@ using namespace aocl_utils;
 #include "f5cmisc_cu.h"
 #include "f5cmisc.h"
 
-#define SEPARATE_KERNELS 1
+// #define SEPARATE_KERNELS 1
 
 int print_results = false;
 
@@ -824,7 +824,7 @@ bool init()
   printf("Using AOCX: %s\n", binary_file1.c_str());
   program1 = createProgramFromBinary(context, binary_file1.c_str(), &device, 1);
 
-  std::string binary_file2 = getBoardBinaryFile("align_core", device);
+  std::string binary_file2 = getBoardBinaryFile("align_core_2cus", device);
   printf("Using AOCX: %s\n", binary_file2.c_str());
   program2 = createProgramFromBinary(context, binary_file2.c_str(), &device, 1);
 

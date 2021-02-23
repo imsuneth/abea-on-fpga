@@ -198,10 +198,10 @@ void cleanup()
 }
 
 // Helper functions to display parameters returned by OpenCL queries
-static void device_info_ulong(cl_device_id device, cl_device_info param, const char *name)
-{
-  cl_ulong a = 99;
-  clGetDeviceInfo(device, param, sizeof(cl_ulong), &a, NULL);
+static void vice_info_ulong(cl_device_id device, cl_device_info param, const char *name)
+
+ l_ulong a = 99;
+ clGetDeviceInfo(device, param, sizeof(cl_ulong), &a, NULL);
   printf("%-40s = %lu\n", name, a);
 }
 static void device_info_size_t(cl_device_id device, cl_device_info param, const char *name)

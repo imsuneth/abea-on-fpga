@@ -1,0 +1,2 @@
+Using AOCX: align.aocx
+MMD INFO : The device is still being programmed, cannot terminate at this point.

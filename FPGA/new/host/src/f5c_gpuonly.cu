@@ -198,8 +198,8 @@ void align_cuda(core_t *core, db_t *db)
 
     /* cuda mem copys*/
     realtime1 = realtime();
-    cudaMemcpy(read_ptr, read_ptr_host, n_bam_rec * sizeof(ptr_t),
-               cudaMemcpyHostToDevice);
+    cudaMemcpyread_ptr, read_ptr_host, n_bam_rec * sizeof(ptr_t),
+              cudaMemcpyHostToDevice);
     CUDA_CHK();
     cudaMemcpy(read, read_host, sum_read_len * sizeof(char),
                cudaMemcpyHostToDevice);

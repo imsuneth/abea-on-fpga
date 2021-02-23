@@ -188,18 +188,17 @@ align_kernel_pre_2d(__global char *restrict read,
 
     // int32_t n_events = n_event;
     int32_t n_kmers = sequence_len - KMER_SIZE + 1;
-// fprintf(stderr,"n_kmers : %d\n",n_kmers);
+    // fprintf(stderr,"n_kmers : %d\n",n_kmers);
 
-// transition penalties
-// float events_per_kmer = (float)n_events / n_kmers;
-// float p_stay = 1 - (1 / (events_per_kmer + 1));
+    // transition penalties
+    // float events_per_kmer = (float)n_events / n_kmers;
+    // float p_stay = 1 - (1 / (events_per_kmer + 1));
 
-// setting a tiny skip penalty helps keep the true alignment within the adaptive
-// band this was empirically determined
-// double epsilon = 1e-10;
-// double lp_skip = log(epsilon);
-// double lp_stay = log(p_stay);
-// double lp_step = log(1.0 - exp(lp_skip) - exp(lp_stay));
+    // setting a tiny skip penalty helps keep the true alignment within the
+    // adaptive band this was empirically determined double epsilon = 1e-10;
+    // double lp_skip = log(epsilon);
+    // double lp_say = log(p_stay);
+    / double lp_step = log(1.0 - exp(lp_skip) - exp(lp_stay));
 #ifndef ALIGN_KERNEL_FLOAT
     double lp_trim = log(0.01);
 #else

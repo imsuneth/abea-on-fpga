@@ -74,8 +74,6 @@ typedef long int64_t;
 typedef char int8_t;
 typedef ulong uint64_t;
 
-typedef ulong size_t;
-
 typedef int64_t ptr_t;
 
 /* data structures */
@@ -115,16 +113,16 @@ typedef struct
     float stdv;
     //int32_t pos;   //todo : always -1 can be removed
     //int32_t state; //todo : always -1 can be removed
-} __attribute__((aligned(4))) event1_t;
+} __attribute__((aligned(32))) event1_t; //total 20bytes
 
 // event table : adapted from scrappie
-typedef struct
-{
-    size_t n;     //todo : int32_t not enough?
-    size_t start; //todo : always 0?
-    size_t end;   //todo : always equal to n?
-    event1_t *event;
-} __attribute__((aligned(4))) event_table;
+// typedef struct
+// {
+//     size_t n;     //todo : int32_t not enough?
+//     size_t start; //todo : always 0?
+//     size_t end;   //todo : always equal to n?
+//     event1_t *event;
+// } __attribute__((aligned(4))) event_table;
 
 //k-mer model
 typedef struct
@@ -142,7 +140,7 @@ typedef struct
 //float sd_stdv;
 //float weight;
 #endif
-} __attribute__((aligned(4))) model_t;
+} __attribute__((aligned(16))) model_t; //total 16 bytes
 
 //scaling parameters for the signal : taken from nanopolish
 typedef struct
@@ -161,21 +159,21 @@ typedef struct
 #endif
     //float scaled_var;
     //float log_scaled_var;
-} __attribute__((aligned(4))) scalings_t;
+} __attribute__((aligned(32))) scalings_t; //total 24bytes
 
 //from nanopolish
 typedef struct
 {
     int event_idx;
     int kmer_idx;
-} __attribute__((aligned(4))) EventKmerPair;
+} __attribute__((aligned(8))) EventKmerPair; //total 8bytes
 
 //from nanopolish
 typedef struct
 {
     int ref_pos;
     int read_pos;
-} __attribute__((aligned(4))) AlignedPair;
+} __attribute__((aligned(8))) AlignedPair; //total 8bytes
 
 //from nanopolish
 // typedef struct

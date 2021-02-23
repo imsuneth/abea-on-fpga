@@ -73,8 +73,8 @@ inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
 
 inline float log_probability_match_r9(scalings_t scaling,
                                       __global model_t *restrict models,
-                                      int event_idx, event1_t *restrict events,
-                                      int event_idx, uint32_t kmer_rank) {
+                                      event1_t *restrict events, int event_idx,
+                                      uint32_t kmer_rank) {
   // event level mean, scaled with the drift value
   // strand = 0;
 #ifdef DEBUG_ADAPTIVE
@@ -191,17 +191,16 @@ align_kernel_pre_2d(
 
     // int32_t n_events = n_event;
     int32_t n_kmers = sequence_len - KMER_SIZE + 1;
-// fprintf(stderr,"n_kmers : %d\n",n_kmers);
+    // fprintf(stderr,"n_kmers : %d\n",n_kmers);
 
-// transition penalties
-// float events_per_kmer = (float)n_events / n_kmers;
-// float p_stay = 1 - (1 / (events_per_kmer + 1));
+    // transition penalties
+    // float events_per_kmer = (float)n_events / n_kmers;
+    // float p_stay = 1 - (1 / (events_per_kmer + 1));
 
-// setting a tiny skip penalty helps keep the true alignment within the adaptive
-// band this was empirically determined
-// double epsilon = 1e-10;
-// double lp_skip = log(epsilon);
-// double lp_stay = log(p_stay);
+    // band this was empirically determined
+    // double epsilon = 1e-10;
+    //  double lp_skip = log(epsilon);
+    // double lp_stay = log(p_stay);
 // double lp_step = log(1.0 - exp(lp_skip) - exp(lp_stay));
 #ifndef ALIGN_KERNEL_FLOAT
     double lp_trim = log(0.01);

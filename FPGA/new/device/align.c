@@ -197,9 +197,9 @@ static inline float log_probability_match_r9(scalings_t scaling,
 #define TRACE_ARRAY(r, c) (trace[((r) * (ALN_BANDWIDTH) + (c))])
 #endif
 
-t32_t align(AlignedPair *out_2, char *sequence, int32_t sequence_len,
-            event_table events, model_t *models, scalings_t scaling,
-            float sample_rate)
+int32_t align(AlignedPair *out_2, char *sequence, int32_t sequence_len,
+              event_table events, model_t *models, scalings_t scaling,
+              float sample_rate)
 {
     //fprintf(stderr, "%s\n", sequence);
     //fprintf(stderr, "Scaling %f %f", scaling.scale, scaling.shift);

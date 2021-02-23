@@ -19,9 +19,20 @@
 //     // GPU
 
 //*********************************************
+#define bandwidth ALN_BANDWIDTH
+#define half_bandwidth ALN_BANDWIDTH / 2
+
+#define max_gap_threshold 50
+#define min_average_log_emission -5.0
+#define epsilon 1e-10
+
+#define FROM_D 0
+#define FROM_U 1
+#define FROM_L 2
 
 // todo : can make more efficient using bit encoding
 inline uint32_t get_rank(char base) {
+  // printf("%c ", base);
   if (base == 'A') { // todo: do we neeed simple alpha?
     return 0;
   } else if (base == 'C') {
@@ -48,6 +59,7 @@ inline uint32_t get_kmer_rank(__global char *str, uint32_t k) {
     // p *= size();
     r += get_rank(str[k - i - 1]) << (i << 1);
   }
+  // printf("%d ", r);
   return r;
 }
 
@@ -70,18 +82,18 @@ inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
 }
 
 inline float log_probability_match_r9(scalings_t scaling,
-                                      __global model_t *models,
-                                      __global event1_t *events, int event_idx,
-                                      uint32_t kmer_rank, uint8_t strand) {
+                                      __global model_t *restrict models,
+                                      __global event1_t *restrict events,
+                                      int event_idx, uint32_t kmer_rank) {
   // event level mean, scaled with the drift value
-  strand = 0;
+  // strand = 0;
   // assert(kmer_rank < 4096);
   // float level = read.get_drift_scaled_level(event_idx, strand);
 
   // float time =
   //    (events.event[event_idx].start - events.event[0].start) / sample_rate;
   // float unscaledLevel = events.event[event_idx].mean;
-  float unscaledLevel = events->mean;
+  float unscaledLevel = events[event_idx].mean;
   float scaledLevel = unscaledLevel;
   // float scaledLevel = unscaledLevel - time * scaling.shift;
 
@@ -131,24 +143,26 @@ inline float log_probability_match_r9(scalings_t scaling,
 // #endif
 
 // __attribute__((max_work_group_size(1024)))
+// __attribute__((num_compute_units(2)))
 __attribute__((reqd_work_group_size(1, 1, 1))) __kernel void
 align_kernel_single(
-    __global AlignedPair *restrict event_align_pairs,
-    __global int32_t *restrict n_event_align_pairs,
-    __global char *restrict read, __global int32_t *restrict read_len,
+    // __global AlignedPair *restrict event_align_pairs,
+    // __global int32_t *restrict n_event_align_pairs,
+    // __global char *restrict read, 
+    __global int32_t *restrict read_len,
     __global ptr_t *restrict read_ptr, __global event1_t *restrict event_table,
     __global int32_t *restrict n_events1, __global ptr_t *restrict event_ptr,
     __global scalings_t *restrict scalings, __global model_t *restrict models,
-    int32_t n_bam_rec, __global int32_t *restrict kmer_ranks1,
+    int32_t n_bam_rec, __global uint32_t *restrict kmer_ranks1,
     __global float *restrict band, __global uint8_t *restrict traces,
     __global EventKmerPair *restrict band_lower_lefts) {
 
   // size_t ii = get_global_id(0);
   // printf("START!!!!!!!!!!!!!!!\n");
-  for (size_t ii = 0; ii < n_bam_rec; ii++) {
+  for (int32_t ii = 0; ii < n_bam_rec; ii++) {
     // fprintf(stderr, "%s\n", sequence);
     // fprintf(stderr, "Scaling %f %f", scaling.scale, scaling.shift);
-
+    // printf("read:%lu\n", ii);
     // AlignedPair* out_2 = db->event_align_pairs[i];
     // char* sequence = db->read[i];
     // int32_t sequence_len = db->read_len[i];
@@ -160,39 +174,29 @@ align_kernel_single(
     __global AlignedPair *out_2 = &event_align_pairs[event_ptr[ii] * 2];
     __global char *sequence = &read[read_ptr[ii]];
     int32_t sequence_len = read_len[ii];
-    // printf("sequence_len %d", sequence_len);
+    // printf("read_len[%lu] = %d\n", ii, read_len[ii]);
     __global event1_t *events = &event_table[event_ptr[ii]];
     int32_t n_event = n_events1[ii];
+
     scalings_t scaling = scalings[ii];
+
     __global float *bands =
         &band[(read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH];
+
     __global uint8_t *trace =
         &traces[(read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH];
+
     __global EventKmerPair *band_lower_left =
         &band_lower_lefts[read_ptr[ii] + event_ptr[ii]];
 
-    int32_t strand_idx = 0;
-    int32_t k = 6;
+    __global uint32_t *kmer_ranks = &kmer_ranks1[read_ptr[ii]];
 
     // size_t n_events = events[strand_idx].n;
-    int32_t n_events = n_event;
-    int32_t n_kmers = sequence_len - k + 1;
+    int32_t n_events = n_event; // <------ diff
+    // printf("n_events= %ld\n", n_events);
+    int32_t n_kmers = sequence_len - KMER_SIZE + 1;
 
-    __global int32_t *kmer_ranks = &kmer_ranks1[n_kmers * ii];
-
-    // fprintf(stderr,"n_kmers : %d\n",n_kmers);
-    // backtrack markers
-    const uint8_t FROM_D = 0;
-    const uint8_t FROM_U = 1;
-    const uint8_t FROM_L = 2;
-
-    // qc
-    double min_average_log_emission = -5.0;
-    int max_gap_threshold = 50;
-
-    // banding
-    int bandwidth = ALN_BANDWIDTH;
-    int half_bandwidth = ALN_BANDWIDTH / 2;
+    // printf("n_kmers : %lu\n", n_kmers);
 
     // transition penalties
     double events_per_kmer = (double)n_events / n_kmers;
@@ -200,11 +204,12 @@ align_kernel_single(
 
     // setting a tiny skip penalty helps keep the true alignment within the
     // adaptive band this was empirically determined
-    double epsilon = 1e-10;
+
     double lp_skip = log(epsilon);
     double lp_stay = log(p_stay);
     double lp_step = log(1.0 - exp(lp_skip) - exp(lp_stay));
     double lp_trim = log(0.01);
+    // printf("lp_step %lf \n", lp_step);
 
     // dp matrix
     int32_t n_rows = n_events + 1;
@@ -220,10 +225,12 @@ align_kernel_single(
     // size_t *kmer_ranks = (size_t *)malloc(sizeof(size_t) * n_kmers);
     // MALLOC_CHK(kmer_ranks);
     // printf("KMER_RANKS!!!!!!!!!!!!!!!\n");
+
     for (int32_t i = 0; i < n_kmers; ++i) {
       //>>>>>>>>> New replacement begin
       __global char *substring = &sequence[i];
-      kmer_ranks[i] = get_kmer_rank(substring, k);
+      // printf("%c", *substring);
+      kmer_ranks[i] = get_kmer_rank(substring, KMER_SIZE);
 
       //<<<<<<<<< New replacement over
     }
@@ -240,6 +247,7 @@ align_kernel_single(
     //   bandwidth); MALLOC_CHK(trace);
     // #endi
     // printf("FILL BAND and TRACE!!!!!!!!!!!!!!!\n");
+    // printf("n_bands = %lu\n", n_bands);
     for (int32_t i = 0; i < n_bands; i++) {
       // #ifdef ALIGN_2D_ARRAY
       //     bands[i] = (float *)malloc(sizeof(float) * bandwidth);
@@ -277,16 +285,16 @@ align_kernel_single(
     band_lower_left[1] = band_lower_left[0];
     band_lower_left[1].event_idx++;
 
-    // printf("0-0 %lu\n", band_lower_left[0].event_idx);
-    // printf("0-1 %lu\n", band_lower_left[0].kmer_idx);
-
     int start_cell_offset = band_kmer_to_offset(0, -1);
+    // printf("start_cell_offset= %d\n", start_cell_offset);
     // assert(is_offset_valid(start_cell_offset));
     // assert(band_event_to_offset(0, -1) == start_cell_offset);
     BAND_ARRAY(0, start_cell_offset) = 0.0f;
 
     // band 1: first event is trimmed
     int first_trim_offset = band_event_to_offset(1, 0);
+    // printf("first_trim_offset= %d\n", first_trim_offset);
+
     // assert(kmer_at_offset(1, first_trim_offset) == -1);
     // assert(is_offset_valid(first_trim_offset));
     BAND_ARRAY(1, first_trim_offset) = lp_trim;
@@ -298,9 +306,11 @@ align_kernel_single(
     fprintf(stderr, "[trim] bi: %d o: %d e: %d k: %d s: %.2lf\n", 1,
             first_trim_offset, 0, -1, bands[1][first_trim_offset]);
 #endif
+
     // printf("INNER_LOOP!!!!!!!!!!!!!!!\n");
     // fill in remaining bands
     // printf("n_bands %lu\n", n_bands);
+    // #pragma unroll
     for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
       // Determine placement of this band according to Suzuki's adaptive
       // algorithm When both ll and ur are out-of-band (ob) we alternate
@@ -317,35 +327,35 @@ align_kernel_single(
         right = ll < ur; // Suzuki's rule
       }
 
-      // #define move_down(curr_band){ curr_band.event_idx + 1,
-      // curr_band.kmer_idx
-      // }
-      //#define move_right(curr_band) {curr_band.event_idx, curr_band.kmer_idx +
-      // 1}
-      // printf("%d ", right);
       if (right) {
         // band_lower_left[band_idx] = move_right(band_lower_left[band_idx -
         // 1]);
+
         // band_lower_left[band_idx] = band_lower_left[band_idx - 1];
         // band_lower_left[band_idx].kmer_idx++;
+
         band_lower_left[band_idx].event_idx =
             band_lower_left[band_idx - 1].event_idx;
         band_lower_left[band_idx].kmer_idx =
             band_lower_left[band_idx - 1].kmer_idx + 1;
+
       } else {
         // band_lower_left[band_idx] = move_down(band_lower_left[band_idx - 1]);
 
         // band_lower_left[band_idx] = band_lower_left[band_idx - 1];
         // band_lower_left[band_idx].event_idx++;
+
         band_lower_left[band_idx].event_idx =
             band_lower_left[band_idx - 1].event_idx + 1;
         band_lower_left[band_idx].kmer_idx =
             band_lower_left[band_idx - 1].kmer_idx;
       }
       int trim_offset = band_kmer_to_offset(band_idx, -1);
+      // printf("%d ", trim_offset);
       if (is_offset_valid(trim_offset)) {
-        int64_t event_idx = event_at_offset(band_idx, trim_offset);
-        if (event_idx >= 0 && event_idx < (int64_t)n_events) {
+        int32_t event_idx = event_at_offset(band_idx, trim_offset);
+        // printf("%ld ", event_idx);
+        if (event_idx >= 0 && event_idx < n_events) {
           BAND_ARRAY(band_idx, trim_offset) = lp_trim * (event_idx + 1);
           TRACE_ARRAY(band_idx, trim_offset) = FROM_U;
         } else {
@@ -355,79 +365,93 @@ align_kernel_single(
 
       // Get the offsets for the first and last event and kmer
       // We restrict the inner loop to only these values
-      int kmer_min_offset = band_kmer_to_offset(band_idx, 0);
-      int kmer_max_offset = band_kmer_to_offset(band_idx, n_kmers);
-      int event_min_offset = band_event_to_offset(band_idx, n_events - 1);
-      int event_max_offset = band_event_to_offset(band_idx, -1);
+      // printf("%d ", band_lower_left[band_idx].kmer_idx);
+      // printf("%d ", band_idx);
 
+      // int kmer_min_offset = band_kmer_to_offset(band_idx, 0);
+      int kmer_min_offset = 0 - band_lower_left[band_idx].kmer_idx;
+      // printf("%d ", kmer_min_offset);
+      int kmer_max_offset = band_kmer_to_offset(band_idx, n_kmers);
+      // printf("%d ", kmer_max_offset);
+      int event_min_offset = band_event_to_offset(band_idx, n_events - 1);
+      // printf("%d ", event_min_offset);
+      int event_max_offset = band_event_to_offset(band_idx, -1);
+      // printf("%d ", event_max_offset);
       int min_offset = MAX(kmer_min_offset, event_min_offset);
       min_offset = MAX(min_offset, 0);
 
       int max_offset = MIN(kmer_max_offset, event_max_offset);
       max_offset = MIN(max_offset, bandwidth);
 
-      for (int offset = min_offset; offset < max_offset; ++offset) {
-        int event_idx = event_at_offset(band_idx, offset);
-        int kmer_idx = kmer_at_offset(band_idx, offset);
+      for (int offset = 0; offset < bandwidth; ++offset) {
 
-        int32_t kmer_rank = kmer_ranks[kmer_idx];
+        if (offset >= min_offset && offset < max_offset) {
 
-        int offset_up = band_event_to_offset(band_idx - 1, event_idx - 1);
-        int offset_left = band_kmer_to_offset(band_idx - 1, kmer_idx - 1);
-        int offset_diag = band_kmer_to_offset(band_idx - 2, kmer_idx - 1);
+          int event_idx = event_at_offset(band_idx, offset);
+          int kmer_idx = kmer_at_offset(band_idx, offset);
 
-#ifdef DEBUG_ADAPTIVE
-        // verify loop conditions
-        // assert(kmer_idx >= 0 && kmer_idx < n_kmers);
-        // assert(event_idx >= 0 && event_idx < n_events);
-        // assert(offset_diag == band_event_to_offset(band_idx - 2, event_idx
-        // - 1)); assert(offset_up - offset_left == 1); assert(offset >= 0 &&
-        // offset < bandwidth);
-#endif
+          int32_t kmer_rank = kmer_ranks[kmer_idx];
+          // printf("%ld ", kmer_rank);
 
-        float up = is_offset_valid(offset_up)
-                       ? BAND_ARRAY(band_idx - 1, offset_up)
-                       : -INFINITY;
-        float left = is_offset_valid(offset_left)
-                         ? BAND_ARRAY(band_idx - 1, offset_left)
-                         : -INFINITY;
-        float diag = is_offset_valid(offset_diag)
-                         ? BAND_ARRAY(band_idx - 2, offset_diag)
-                         : -INFINITY;
-
-        float lp_emission = log_probability_match_r9(
-            scaling, models, events, event_idx, kmer_rank, strand_idx);
-        // fprintf(stderr, "lp emiision : %f , event idx %d, kmer rank %d\n",
-        // lp_emission,event_idx,kmer_rank);
-        float score_d = diag + lp_step + lp_emission;
-        float score_u = up + lp_stay + lp_emission;
-        float score_l = left + lp_skip;
-
-        float max_score = score_d;
-        uint8_t from = FROM_D;
-
-        max_score = score_u > max_score ? score_u : max_score;
-        from = max_score == score_u ? FROM_U : from;
-        max_score = score_l > max_score ? score_l : max_score;
-        from = max_score == score_l ? FROM_L : from;
+          int offset_up = band_event_to_offset(band_idx - 1, event_idx - 1);
+          int offset_left = band_kmer_to_offset(band_idx - 1, kmer_idx - 1);
+          int offset_diag = band_kmer_to_offset(band_idx - 2, kmer_idx - 1);
 
 #ifdef DEBUG_ADAPTIVE
-        fprintf(stderr,
-                "[adafill] offset-up: %d offset-diag: %d offset-left: %d\n",
-                offset_up, offset_diag, offset_left);
-        fprintf(stderr, "[adafill] up: %.2lf diag: %.2lf left: %.2lf\n", up,
-                diag, left);
-        fprintf(stderr,
-                "[adafill] bi: %d o: %d e: %d k: %d s: %.2lf f: %d emit: "
-                "%.2lf\n",
-                band_idx, offset, event_idx, kmer_idx, max_score, from,
-                lp_emission);
+          // verify loop conditions
+          // assert(kmer_idx >= 0 && kmer_idx < n_kmers);
+          // assert(event_idx >= 0 && event_idx < n_events);
+          // assert(offset_diag == band_event_to_offset(band_idx - 2, event_idx
+          // - 1)); assert(offset_up - offset_left == 1); assert(offset >= 0 &&
+          // offset < bandwidth);
 #endif
-        BAND_ARRAY(band_idx, offset) = max_score;
-        TRACE_ARRAY(band_idx, offset) = from;
-        fills += 1;
+
+          float up = is_offset_valid(offset_up)
+                         ? BAND_ARRAY(band_idx - 1, offset_up)
+                         : -INFINITY;
+          float left = is_offset_valid(offset_left)
+                           ? BAND_ARRAY(band_idx - 1, offset_left)
+                           : -INFINITY;
+          float diag = is_offset_valid(offset_diag)
+                           ? BAND_ARRAY(band_idx - 2, offset_diag)
+                           : -INFINITY;
+
+          float lp_emission = log_probability_match_r9(scaling, models, events,
+                                                       event_idx, kmer_rank);
+          // fprintf(stderr, "lp emiision : %f , event idx %d, kmer rank %d\n",
+          // lp_emission,event_idx,kmer_rank);
+          float score_d = diag + lp_step + lp_emission;
+          float score_u = up + lp_stay + lp_emission;
+          float score_l = left + lp_skip;
+
+          float max_score = score_d;
+          uint8_t from = FROM_D;
+
+          max_score = score_u > max_score ? score_u : max_score;
+          from = max_score == score_u ? FROM_U : from;
+          max_score = score_l > max_score ? score_l : max_score;
+          from = max_score == score_l ? FROM_L : from;
+
+#ifdef DEBUG_ADAPTIVE
+          fprintf(stderr,
+                  "[adafill] offset-up: %d offset-diag: %d offset-left: %d\n",
+                  offset_up, offset_diag, offset_left);
+          fprintf(stderr, "[adafill] up: %.2lf diag: %.2lf left: %.2lf\n", up,
+                  diag, left);
+          fprintf(stderr,
+                  "[adafill] bi: %d o: %d e: %d k: %d s: %.2lf f: %d emit: "
+                  "%.2lf\n",
+                  band_idx, offset, event_idx, kmer_idx, max_score, from,
+                  lp_emission);
+#endif
+          BAND_ARRAY(band_idx, offset) = max_score;
+          // printf("%f ", max_score);
+          TRACE_ARRAY(band_idx, offset) = from;
+          fills += 1;
+        }
       }
     }
+
     // printf("INNER_LOOP END!!!!!!!!!!!!!!!\n");
     //
     // Backtrack to compute alignment
@@ -443,7 +467,7 @@ align_kernel_single(
 
     float max_score = -INFINITY;
     int curr_event_idx = 0;
-    int curr_kmer_idx = n_kmers - 1;
+    int32_t curr_kmer_idx = n_kmers - 1;
 
     // Find best score between an event and the last k-mer. after trimming the
     // remaining evnets
@@ -501,10 +525,10 @@ align_kernel_single(
       // qc stats
       //>>>>>>>>>>>>>>New Replacement begin
       __global char *substring = &sequence[curr_kmer_idx];
-      int32_t kmer_rank = get_kmer_rank(substring, k);
+      uint32_t kmer_rank = get_kmer_rank(substring, KMER_SIZE);
       //<<<<<<<<<<<<<New Replacement over
-      float tempLogProb = log_probability_match_r9(
-          scaling, models, events, curr_event_idx, kmer_rank, 0);
+      float tempLogProb = log_probability_match_r9(scaling, models, events,
+                                                   curr_event_idx, kmer_rank);
 
       sum_emission += tempLogProb;
       // fprintf(stderr, "lp_emission %f \n", tempLogProb);
@@ -576,7 +600,7 @@ align_kernel_single(
     // - 1;
     //<<<<<<<<<<<<<New replacement over
     // bool failed = false;
-
+    // printf("\nOUTINDEX: %d\n", outIndex);
     if (avg_log_emission < min_average_log_emission || !spanned ||
         max_gap > max_gap_threshold) {
       // failed = true;

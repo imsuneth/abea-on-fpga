@@ -171,8 +171,7 @@ inline float log_probability_match_r9(scalings_t scaling,
 //******************************************************************************************************
 /*core kernel*/
 //******************************************************************************************************
-// __attribute__((num_compute_units(4)))
-__attribute__((num_simd_work_items(1)))
+__attribute__((num_compute_units(1))) __attribute__((num_simd_work_items(1)))
 __attribute__((reqd_work_group_size(128, 1, 1))) __kernel void
 align_kernel_core_2d_shm(
     __global int32_t *restrict read_len, __global ptr_t *restrict read_ptr,
