@@ -254,13 +254,19 @@ align_kernel_single(
     int32_t n_cols = n_kmers + 1;
     int32_t n_bands = n_rows + n_cols;
 
-    // printf("n_bands = %lu\n", n_bands);
+// printf("n_bands = %lu\n", n_bands);
 
-    // int fills = 0;
+// int fills = 0;
 
-    // printf("INNER_LOOP!!!!!!!!!!!!!!!\n");
-    // fill in remaining bands
-    // printf("n_bands %lu\n", n_bands);
+// printf("INNER_LOOP!!!!!!!!!!!!!!!\n");
+// fill in remaining bands
+// printf("n_bands %lu\n", n_bands);
+// #pragma ivdep
+// #pragma ii 1
+#pragma ivdep array(bands)
+#pragma ivdep array(trace)
+#pragma ivdep array(band_lower_left)
+#pragma ii 1
     for (int offset = 0; offset < bandwidth; ++offset) {
       BAND_ARRAY_SHM(0, offset) = BAND_ARRAY(2, offset);
       BAND_ARRAY_SHM(1, offset) = BAND_ARRAY(1, offset);
@@ -272,8 +278,11 @@ align_kernel_single(
 
       // #pragma unroll
       bool odd_band_idx = true;
-      // #pragma speculated_iterations 3
-      // #pragma ivdep array(trace)
+// #pragma speculated_iterations 3
+#pragma ivdep array(trace_shm)
+#pragma ivdep array(read_len)
+
+      // #pragma unroll 2
       for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
         odd_band_idx = !odd_band_idx;
         // if (band_idx < n_bands) {

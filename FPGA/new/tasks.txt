@@ -74,3 +74,45 @@ bin_single_read:
 	; DSP blocks                             ;   51%                     ;
 	+----------------------------------------+---------------------------;
 
+
+bin_single: pre, post on CPU, core on FPGA
+	without unrolling band_idx loop
+	+--------------------------------------------------------------------+
+	; Estimated Resource Usage Summary                                   ;
+	+----------------------------------------+---------------------------+
+	; Resource                               + Usage                     ;
+	+----------------------------------------+---------------------------+
+	; Logic utilization                      ;   40%                     ;
+	; ALUTs                                  ;   27%                     ;
+	; Dedicated logic registers              ;   16%                     ;
+	; Memory blocks                          ;   32%                     ;
+	; DSP blocks                             ;   30%                     ;
+	+----------------------------------------+---------------------------;
+	= RUN time reduced
+
+
+	band_idx loop: unroll factor 5 gave an error at compilation
+	+--------------------------------------------------------------------+
+	; Estimated Resource Usage Summary                                   ;
+	+----------------------------------------+---------------------------+
+	; Resource                               + Usage                     ;
+	+----------------------------------------+---------------------------+
+	; Logic utilization                      ;   95%                     ;
+	; ALUTs                                  ;   59%                     ;
+	; Dedicated logic registers              ;   41%                     ;
+	; Memory blocks                          ;   82%                     ;
+	; DSP blocks                             ;   41%                     ;
+	+----------------------------------------+---------------------------;
+	Compiling for FPGA. This process may take a long time, please be patient.
+	Error: Kernel fit error, recommend using --high-effort.
+	Error (170113): Can't satisfy hard routing constraints for signal "system:system_inst|system_board:board|system_board_kernel_interface:kernel_interface|altera_reset_controller:reset_controller_sw|altera_reset_synchronizer:alt_rst_sync_uq1|altera_reset_synchronizer_int_chain_out~CLKENA0". Remove the "hard" routing specification, remove the constraints for the specified signal, or for DDIO or DQS logic, remove the location constraints that force other logic into the same LAB. The Intel FPGA Knowledge Database contains many articles with specific details on how to resolve this error. Visit the Knowledge Database at https://www.altera.com/support/support-resources/knowledge-base/search.html and search for this specific error message number.
+	Error: Flow compile (for project /run/media/e15_group7/5eca9201-709f-44ad-aa66-b74834ad8dfc/e15_group7/abea-on-fpga/FPGA/new/bins/bin_single_unroll/align/top) was not successful
+	Error: ERROR: Error(s) found while running an executable. See report file(s) for error message(s). Message log indicates which executable was run last.
+	Error (23031): Evaluation of Tcl script /root/intelFPGA/18.0/quartus/common/tcl/internal/qsh_flow.tcl unsuccessful
+	Error: Quartus Prime Shell was unsuccessful. 4 errors, 1237 warnings
+	Error: Compiler Error, not able to generate hardware
+
+
+bin_single: all pre, post, core on FPGA
+	
+

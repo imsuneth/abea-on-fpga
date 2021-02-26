@@ -19,7 +19,7 @@ using namespace aocl_utils;
 #include "f5cmisc.h"
 
 const char *binary_name = "align";
-int print_results = true;
+int print_results = false;
 #define VERBOSITY 0
 
 #define AOCL_ALIGNMENT 64
@@ -270,14 +270,13 @@ void align_ocl(core_t *core, db_t *db)
   float *bands_host;                   //
   uint8_t *trace_host;                 //
   EventKmerPair *band_lower_left_host; //
+  uint32_t *kmer_rank_host;
 
   /*time measurements*/
   cl_event event;
   // cl_double host_to_device_transfer_time = 0;
   // cl_double device_to_host_transfer_time = 0;
   cl_ulong start = 0, end = 0;
-
-  realtime1 = realtime();
 
   // read_ptr_host = (ptr_t *)malloc(sizeof(ptr_t) * n_bam_rec);
   posix_memalign((void **)&read_ptr_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(ptr_t));
@@ -371,7 +370,6 @@ void align_ocl(core_t *core, db_t *db)
   posix_memalign((void **)&event_align_pairs_host, AOCL_ALIGNMENT, 2 * sum_n_events * sizeof(AlignedPair));
   MALLOC_CHK(event_align_pairs_host);
 
-  uint32_t *kmer_rank_host;
   posix_memalign((void **)&kmer_rank_host, AOCL_ALIGNMENT, sum_read_len * sizeof(size_t));
   MALLOC_CHK(kmer_rank_host);
 
@@ -392,6 +390,7 @@ void align_ocl(core_t *core, db_t *db)
   posix_memalign((void **)&n_event_align_pairs_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(int32_t));
   MALLOC_CHK(n_event_align_pairs_host);
 
+  realtime1 = realtime();
   //HOST PRE PROCESSING ===========================================================
   host_pre_processing(event_align_pairs_host,
                       n_event_align_pairs_host,
@@ -624,7 +623,7 @@ void align_ocl(core_t *core, db_t *db)
   /** post work**/
   realtime1 = realtime();
 
-  fprintf(stderr, "Read back done \n");
+  // fprintf(stderr, "Read back done \n");
 
   //HOST POST PROCESSING ===========================================================
   host_post_processing(event_align_pairs_host,
@@ -654,14 +653,27 @@ void align_ocl(core_t *core, db_t *db)
     memcpy(db->event_align_pairs[i], &event_align_pairs_host[idx * 2], sizeof(AlignedPair) * db->n_event_align_pairs[i]);
   }
 
-  //free the temp arrays on host
-  free(read_ptr_host);
-  free(n_events_host);
-  free(event_ptr_host);
-  // #endif
+  // //free the temp arrays on host
+  // free(read_host);
+  // free(n_events_host);
+  // free(event_ptr_host);
+  // // #endif
+  // free(read_host);
+  // free(event_table_host);
+  // free(event_align_pairs_host);
+
   free(read_host);
+  free(read_ptr_host);
+
+  free(n_events_host);
   free(event_table_host);
+  free(event_ptr_host);
   free(event_align_pairs_host);
+  free(n_event_align_pairs_host);
+  free(bands_host);
+  free(trace_host);
+  free(band_lower_left_host);
+  free(kmer_rank_host);
 
   align_cl_postprocess += (realtime() - realtime1);
 }
