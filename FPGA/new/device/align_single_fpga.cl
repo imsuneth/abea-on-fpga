@@ -237,10 +237,10 @@ __attribute__((task)) __kernel void align_kernel_single(
       //<<<<<<<<< New replacement over
     }
 
-    #pragma ivdep array(bands)
-    #pragma ivdep array(trace)
+#pragma ivdep array(bands)
+#pragma ivdep array(trace)
     for (int32_t i = 0; i < n_bands; i++) {
-      #pragma unroll
+#pragma unroll
       for (int32_t j = 0; j < bandwidth; j++) {
         BAND_ARRAY(i, j) = -INFINITY;
         TRACE_ARRAY(i, j) = 0;
@@ -278,11 +278,12 @@ __attribute__((task)) __kernel void align_kernel_single(
     // printf("n_bands %lu\n", n_bands);
     // #pragma unroll
     bool odd_band_idx = true;
-    // #pragma ivdep array(events)
-    // #pragma ivdep array(models)
-    // #pragma ivdep array(kmer_ranks)
-    // #pragma ivdep array(traces)
-    // #pragma unroll 5 // for de5net a7; try higher for arria 10
+// #pragma ivdep array(events)
+// #pragma ivdep array(models)
+// #pragma ivdep array(kmer_ranks)
+// #pragma ivdep array(traces)
+
+#pragma unroll 3 // for de5net a7; try higher for arria 10
     for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
       odd_band_idx = !odd_band_idx;
       // if (band_idx < n_bands) {
@@ -424,41 +425,42 @@ __attribute__((task)) __kernel void align_kernel_single(
       // }
     } // for (int32_t band_idx = 2; band_idx < 100000; ++band_idx)
 
-    //
-    // Backtrack to compute alignment
-    //
-    double sum_emission = 0;
-    double n_aligned_events = 0;
+    // //
+    // // Backtrack to compute alignment
+    // //
+    // double sum_emission = 0;
+    // double n_aligned_events = 0;
 
-    //>>>>>>>>>>>>>> New replacement begin
-    // std::vector<AlignedPair> out;
+    // //>>>>>>>>>>>>>> New replacement begin
+    // // std::vector<AlignedPair> out;
 
-    int outIndex = 0;
-    //<<<<<<<<<<<<<<<<New Replacement over
+    // int outIndex = 0;
+    // //<<<<<<<<<<<<<<<<New Replacement over
 
-    float max_score = -INFINITY;
-    int curr_event_idx = 0;
-    int curr_kmer_idx = n_kmers - 1;
+    // float max_score = -INFINITY;
+    // int curr_event_idx = 0;
+    // int curr_kmer_idx = n_kmers - 1;
 
-    // Find best score between an event and the last k-mer. after trimming the
-    // remaining evnets
-    for (size_t event_idx = 0; event_idx < n_events; ++event_idx) {
-      int band_idx = event_kmer_to_band(event_idx, curr_kmer_idx);
+    // // Find best score between an event and the last k-mer. after trimming
+    // the
+    // // remaining evnets
+    // for (size_t event_idx = 0; event_idx < n_events; ++event_idx) {
+    //   int band_idx = event_kmer_to_band(event_idx, curr_kmer_idx);
 
-      //>>>>>>>New  replacement begin
-      /*assert(band_idx < bands.size());*/
-      // assert((size_t)band_idx < n_bands);
-      //<<<<<<<<New Replacement over
-      int offset = band_event_to_offset(band_idx, event_idx);
-      if (is_offset_valid(offset)) {
-        float s =
-            BAND_ARRAY(band_idx, offset) + (n_events - event_idx) * lp_trim;
-        if (s > max_score) {
-          max_score = s;
-          curr_event_idx = event_idx;
-        }
-      }
-    }
+    //   //>>>>>>>New  replacement begin
+    //   /*assert(band_idx < bands.size());*/
+    //   // assert((size_t)band_idx < n_bands);
+    //   //<<<<<<<<New Replacement over
+    //   int offset = band_event_to_offset(band_idx, event_idx);
+    //   if (is_offset_valid(offset)) {
+    //     float s =
+    //         BAND_ARRAY(band_idx, offset) + (n_events - event_idx) * lp_trim;
+    //     if (s > max_score) {
+    //       max_score = s;
+    //       curr_event_idx = event_idx;
+    //     }
+    //   }
+    // }
 
     // #ifdef DEBUG_ADAPTIVE
     //     fprintf(stderr, "[adaback] ei: %d ki: %d s: %.2f\n", curr_event_idx,
