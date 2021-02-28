@@ -19,7 +19,7 @@ using namespace aocl_utils;
 #include "f5cmisc.h"
 
 const char *binary_name = "align";
-int print_results = false;
+int print_results = true;
 #define VERBOSITY 0
 
 #define AOCL_ALIGNMENT 64
@@ -379,11 +379,6 @@ void align_ocl(core_t *core, db_t *db)
   posix_memalign((void **)&trace_host, AOCL_ALIGNMENT, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
   MALLOC_CHK(trace_host);
 
-  // for (i = 0; i < sum_n_bands * BLOCK_LEN_BANDWIDTH; i++)
-  // {
-  //   trace_host[i] = 0;
-  // }
-
   posix_memalign((void **)&bands_host, AOCL_ALIGNMENT, sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
   MALLOC_CHK(bands_host);
 
@@ -496,6 +491,7 @@ void align_ocl(core_t *core, db_t *db)
   checkError(status, "Failed clCreateBuffer");
 
   align_cl_malloc += (realtime() - realtime1);
+  realtime1 = realtime();
 
   align_cl_memcpy += (realtime() - realtime1);
 

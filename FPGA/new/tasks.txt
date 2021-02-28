@@ -114,5 +114,17 @@ bin_single: pre, post on CPU, core on FPGA
 
 
 bin_single: all pre, post, core on FPGA
-	
+	+--------------------------------------------------------------------+
+	; Estimated Resource Usage Summary                                   ;
+	+----------------------------------------+---------------------------+
+	; Resource                               + Usage                     ;
+	+----------------------------------------+---------------------------+
+	; Logic utilization                      ;   79%                     ;
+	; ALUTs                                  ;   49%                     ;
+	; Dedicated logic registers              ;   34%                     ;
+	; Memory blocks                          ;   61%                     ;
+	; DSP blocks                             ;   36%                     ;
+	+----------------------------------------+---------------------------;
+	=PERFORMANCE IMPROVEMENT
+
 

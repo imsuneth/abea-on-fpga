@@ -53,7 +53,8 @@ inline uint32_t get_kmer_rank(__global char *str) {
   // uint32_t p = 1;
   uint32_t r = 0;
 
-  // from last base to first
+// from last base to first
+#pragma unroll
   for (uint32_t i = 0; i < KMER_SIZE; ++i) {
     // r += rank(str[k - i - 1]) * p;
     // p *= size();
@@ -72,10 +73,12 @@ inline void kmer_cpy(char *dest, char *src, uint32_t k) {
   dest[i] = '\0';
 }
 
+#define log_inv_sqrt_2pi -0.918938f // Natural logarithm
+
 inline float log_normal_pdf(float x, float gp_mean, float gp_stdv,
                             float gp_log_stdv) {
   /*INCOMPLETE*/
-  float log_inv_sqrt_2pi = -0.918938f; // Natural logarithm
+  // float log_inv_sqrt_2pi = -0.918938f; // Natural logarithm
   float a = (x - gp_mean) / gp_stdv;
   return log_inv_sqrt_2pi - gp_log_stdv + (-0.5f * a * a);
   // return 1;
@@ -126,6 +129,11 @@ inline float log_probability_match_r9(scalings_t scaling,
 #define event_at_offset(bi, offset) band_lower_left[(bi)].event_idx - (offset)
 #define kmer_at_offset(bi, offset) band_lower_left[(bi)].kmer_idx + (offset)
 
+// #define move_down(curr_band)                                                   \
+//     { curr_band.event_idx + 1, curr_band.kmer_idx }
+// #define move_right(curr_band)                                                  \
+//     { curr_band.event_idx, curr_band.kmer_idx + 1 }
+
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
@@ -142,8 +150,8 @@ inline float log_probability_match_r9(scalings_t scaling,
 // __attribute__((reqd_work_group_size(1, 1, 1)))
 // __attribute__((num_compute_units(1)))
 __attribute__((task)) __kernel void align_kernel_single(
-    __global AlignedPair *restrict event_align_pairs,
-    __global int32_t *restrict n_event_align_pairs,
+    // __global AlignedPair *restrict event_align_pairs,
+    // __global int32_t *restrict n_event_align_pairs,
     __global char *restrict read, __global int32_t *restrict read_len,
     __global ptr_t *restrict read_ptr, __global event1_t *restrict event_table,
     __global int32_t *restrict n_events1, __global ptr_t *restrict event_ptr,
@@ -179,35 +187,35 @@ __attribute__((task)) __kernel void align_kernel_single(
     // scalings_t scaling = db->scalings[i];
     // float sample_rate = db->f5[i]->sample_rate;
 
-    __global AlignedPair *out_2 = &event_align_pairs[event_ptr[ii] * 2];
+    // __global AlignedPair *out_2 = &event_align_pairs[event_ptr[ii] * 2];
     __global char *sequence = &read[read_ptr[ii]];
     int32_t sequence_len = read_len[ii];
     // printf("read_len[%lu] = %d\n", ii, read_len[ii]);
 
-    // __global event1_t *events = &event_table[event_ptr[ii]];
-    __global event1_t *events = event_table + event_ptr[ii];
+    __global event1_t *events = &event_table[event_ptr[ii]];
+    // __global event1_t *events = event_table + event_ptr[ii];
 
     int32_t n_events = n_events1[ii];
 
     scalings_t scaling = scalings[ii];
 
-    // __global float *bands =
-    //     &band[(read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH];
     __global float *bands =
-        band + (read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH;
+        &band[(read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH];
+    // __global float *bands =
+    //     band + (read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH;
 
-    // __global uint8_t *trace =
-    //     &traces[(read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH];
     __global uint8_t *trace =
-        traces + (read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH;
+        &traces[(read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH];
+    // __global uint8_t *trace =
+    //     traces + (read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH;
 
-    // __global EventKmerPair *band_lower_left =
-    //     &band_lower_lefts[read_ptr[ii] + event_ptr[ii]];
     __global EventKmerPair *band_lower_left =
-        band_lower_lefts + read_ptr[ii] + event_ptr[ii];
+        &band_lower_lefts[read_ptr[ii] + event_ptr[ii]];
+    // __global EventKmerPair *band_lower_left =
+    //     band_lower_lefts + read_ptr[ii] + event_ptr[ii];
 
-    // __global uint32_t *kmer_ranks = &kmer_ranks1[read_ptr[ii]];
-    __global uint32_t *kmer_ranks = kmer_ranks1 + read_ptr[ii];
+    __global uint32_t *kmer_ranks = &kmer_ranks1[read_ptr[ii]];
+    // __global uint32_t *kmer_ranks = kmer_ranks1 + read_ptr[ii];
 
     // int32_t n_events = n_event; // <------ diff
     int32_t n_kmers = sequence_len - KMER_SIZE + 1;
@@ -230,6 +238,7 @@ __attribute__((task)) __kernel void align_kernel_single(
     int32_t n_cols = n_kmers + 1;
     int32_t n_bands = n_rows + n_cols;
 
+#pragma unroll
     for (int32_t i = 0; i < n_kmers; ++i) {
       //>>>>>>>>> New replacement begin
       __global char *substring = &sequence[i];
@@ -267,7 +276,7 @@ __attribute__((task)) __kernel void align_kernel_single(
     BAND_ARRAY(1, first_trim_offset) = lp_trim;
     TRACE_ARRAY(1, first_trim_offset) = FROM_U;
 
-    // int fills = 0;
+    int fills = 0;
 #ifdef DEBUG_ADAPTIVE
     fprintf(stderr, "[trim] bi: %d o: %d e: %d k: %d s: %.2lf\n", 1,
             first_trim_offset, 0, -1, bands[1][first_trim_offset]);
@@ -277,15 +286,16 @@ __attribute__((task)) __kernel void align_kernel_single(
     // fill in remaining bands
     // printf("n_bands %lu\n", n_bands);
     // #pragma unroll
-    bool odd_band_idx = true;
-// #pragma ivdep array(events)
-// #pragma ivdep array(models)
-// #pragma ivdep array(kmer_ranks)
-// #pragma ivdep array(traces)
+    // bool odd_band_idx = true;
+    // #pragma ivdep array(events)
+    // #pragma ivdep array(models)
+    // #pragma ivdep array(kmer_ranks)
+    // #pragma ivdep array(traces)
+    // #pragma loop_coalesce 2
 
-#pragma unroll 3 // for de5net a7; try higher for arria 10
+#pragma unroll 4 // for de5net a7; try higher for arria 10
     for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
-      odd_band_idx = !odd_band_idx;
+      // odd_band_idx = !odd_band_idx;
       // if (band_idx < n_bands) {
 
       // Determine placement of this band according to Suzuki's adaptive
@@ -298,12 +308,12 @@ __attribute__((task)) __kernel void align_kernel_single(
 
       bool right = false;
       if (ll_ob && ur_ob) {
-        // right = band_idx % 2 == 1;
-        right = odd_band_idx;
+        right = band_idx % 2 == 1;
+        // right = odd_band_idx;
       } else {
         right = ll < ur; // Suzuki's rule
       }
-      EventKmerPair bbl = band_lower_left[band_idx - 1];
+      // EventKmerPair bbl = band_lower_left[band_idx - 1];
       if (right) {
         // band_lower_left[band_idx] = move_right(band_lower_left[band_idx -
         // 1]);
@@ -311,12 +321,12 @@ __attribute__((task)) __kernel void align_kernel_single(
         // band_lower_left[band_idx] = band_lower_left[band_idx - 1];
         // band_lower_left[band_idx].kmer_idx++;
 
-        bbl.kmer_idx++;
+        // bbl.kmer_idx++;
 
-        // band_lower_left[band_idx].event_idx =
-        //     band_lower_left[band_idx - 1].event_idx;
-        // band_lower_left[band_idx].kmer_idx =
-        //     band_lower_left[band_idx - 1].kmer_idx + 1;
+        band_lower_left[band_idx].event_idx =
+            band_lower_left[band_idx - 1].event_idx;
+        band_lower_left[band_idx].kmer_idx =
+            band_lower_left[band_idx - 1].kmer_idx + 1;
 
       } else {
         // band_lower_left[band_idx] = move_down(band_lower_left[band_idx -
@@ -325,19 +335,21 @@ __attribute__((task)) __kernel void align_kernel_single(
         // band_lower_left[band_idx] = band_lower_left[band_idx - 1];
         // band_lower_left[band_idx].event_idx++;
 
-        bbl.event_idx++;
+        // bbl.event_idx++;
 
-        // band_lower_left[band_idx].event_idx =
-        //     band_lower_left[band_idx - 1].event_idx + 1;
-        // band_lower_left[band_idx].kmer_idx =
-        //     band_lower_left[band_idx - 1].kmer_idx;
+        band_lower_left[band_idx].event_idx =
+            band_lower_left[band_idx - 1].event_idx + 1;
+        band_lower_left[band_idx].kmer_idx =
+            band_lower_left[band_idx - 1].kmer_idx;
       }
-      band_lower_left[band_idx] = bbl;
+      // band_lower_left[band_idx] = bbl;
 
       int trim_offset = band_kmer_to_offset(band_idx, -1);
-      // printf("%d ", trim_offset);
+      // int trim_offset = (-1) - bbl.kmer_idx;
+      printf("%d ", trim_offset);
       if (is_offset_valid(trim_offset)) {
         int32_t event_idx = event_at_offset(band_idx, trim_offset);
+        // int32_t event_idx = bbl.event_idx - (trim_offset);
         // printf("%ld ", event_idx);
         if (event_idx >= 0 && event_idx < n_events) {
           BAND_ARRAY(band_idx, trim_offset) = lp_trim * (event_idx + 1);
@@ -352,23 +364,21 @@ __attribute__((task)) __kernel void align_kernel_single(
       // printf("%d ", band_lower_left[band_idx].kmer_idx);
       // printf("%d ", band_idx);
 
-      // int kmer_min_offset = band_kmer_to_offset(band_idx, 0);
-      int kmer_min_offset = 0 - band_lower_left[band_idx].kmer_idx;
-      // printf("%d ", kmer_min_offset);
+      int kmer_min_offset = band_kmer_to_offset(band_idx, 0);
+      // int kmer_min_offset = 0 - bbl.kmer_idx;
       int kmer_max_offset = band_kmer_to_offset(band_idx, n_kmers);
-      // printf("%d ", kmer_max_offset);
+      // int kmer_max_offset = n_kmers - bbl.kmer_idx;
       int event_min_offset = band_event_to_offset(band_idx, n_events - 1);
-      // printf("%d ", event_min_offset);
+      // int event_min_offset = bbl.event_idx - (n_events - 1);
       int event_max_offset = band_event_to_offset(band_idx, -1);
-      // printf("%d ", event_max_offset);
+      // int event_max_offset = bbl.event_idx - (-1);
+
       int min_offset = MAX(kmer_min_offset, event_min_offset);
       min_offset = MAX(min_offset, 0);
 
       int max_offset = MIN(kmer_max_offset, event_max_offset);
       max_offset = MIN(max_offset, bandwidth);
 
-// #pragma speculated_iterations 3
-// #pragma unroll 2
 #pragma ivdep array(bands)
 #pragma ivdep array(trace)
 #pragma ivdep array(band_lower_left)
@@ -378,12 +388,11 @@ __attribute__((task)) __kernel void align_kernel_single(
 
           int event_idx = event_at_offset(band_idx, offset);
           int kmer_idx = kmer_at_offset(band_idx, offset);
+          // int event_idx = bbl.event_idx - offset;
+          // int kmer_idx = bbl.kmer_idx + offset;
 
           int32_t kmer_rank = kmer_ranks[kmer_idx];
           // printf("%ld ", kmer_rank);
-
-          float lp_emission = log_probability_match_r9(scaling, models, events,
-                                                       event_idx, kmer_rank);
 
           int offset_up = band_event_to_offset(band_idx - 1, event_idx - 1);
           int offset_left = band_kmer_to_offset(band_idx - 1, kmer_idx - 1);
@@ -398,7 +407,8 @@ __attribute__((task)) __kernel void align_kernel_single(
           float diag = is_offset_valid(offset_diag)
                            ? BAND_ARRAY(band_idx - 2, offset_diag)
                            : -INFINITY;
-
+          float lp_emission = log_probability_match_r9(scaling, models, events,
+                                                       event_idx, kmer_rank);
           // fprintf(stderr, "lp emiision : %f , event idx %d, kmer rank
           // %d\n", lp_emission,event_idx,kmer_rank);
           float score_d = diag + lp_step + lp_emission;
@@ -416,14 +426,19 @@ __attribute__((task)) __kernel void align_kernel_single(
           BAND_ARRAY(band_idx, offset) = max_score;
           // printf("%f ", max_score);
           TRACE_ARRAY(band_idx, offset) = from;
-          // fills += 1;
+          fills += 1;
+          // printf("[trim] bi: %d o: %d e: %d k: %d s: %.2lf\n", 1,
+          // first_trim_offset, 0, -1, BAND_ARRAY(1, first_trim_offset));
         }
       }
+
       // } // if (band_idx < n_bands)
       // else {
       //   break;
       // }
     } // for (int32_t band_idx = 2; band_idx < 100000; ++band_idx)
+
+    printf("fills:%d\n", fills);
 
     // //
     // // Backtrack to compute alignment
@@ -452,6 +467,15 @@ __attribute__((task)) __kernel void align_kernel_single(
     //   // assert((size_t)band_idx < n_bands);
     //   //<<<<<<<<New Replacement over
     //   int offset = band_event_to_offset(band_idx, event_idx);
+    //   if (is_offset_valid(offset)) {
+    //     float s =
+    //         BAND_ARRAY(band_idx, offset) + (n_events - event_idx) * lp_trim;
+    //     if (s > max_score) {
+    //       max_score = s;
+    //       curr_event_idx = event_idx;
+    //     }
+    //   }
+    // }
     //   if (is_offset_valid(offset)) {
     //     float s =
     //         BAND_ARRAY(band_idx, offset) + (n_events - event_idx) * lp_trim;

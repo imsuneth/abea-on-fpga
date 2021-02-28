@@ -4,6 +4,7 @@ make BIN=bins/bin CPP=host/src/align_3k.cpp
 
 Run:
 ./bins/bin/host ../dump_large_1.4M_0k_10k
+./bins/bin/host ../dump_large_1.3M
 
 Dynamic Profiler:
 aocl report bins/bin_prof/align.aocx bins/bin_prof/profile.mon bins/bin_prof/align.source

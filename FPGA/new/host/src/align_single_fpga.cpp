@@ -18,12 +18,13 @@ using namespace aocl_utils;
 #include "f5cmisc_cu.h"
 #include "f5cmisc.h"
 
-int print_results = false;
+int print_results = true;
 #define VERBOSITY 0
 
 #define AOCL_ALIGNMENT 64
 
 // #define CPU_GPU_PROC
+// #define DEBUG_ADAPTIVE
 
 #define STRING_BUFFER_LEN 1024
 
@@ -261,7 +262,7 @@ void align_ocl(core_t *core, db_t *db)
   /**cuda pointers*/
   char *read_host;      //flattened reads sequences
   ptr_t *read_ptr_host; //index pointer for flattedned "reads"
-  int32_t *read_len_host;
+  // int32_t *read_len_host;
   int64_t sum_read_len;
   size_t *n_events_host;
   event_t *event_table_host;
@@ -399,49 +400,49 @@ void align_ocl(core_t *core, db_t *db)
   //read_ptr
   if (core->opt.verbosity > 1)
     print_size("read_ptr array", n_bam_rec * sizeof(ptr_t));
-  cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(ptr_t), NULL, &status);
+  cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(ptr_t), read_ptr_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //read_len
   if (core->opt.verbosity > 1)
     print_size("read_lens", n_bam_rec * sizeof(int32_t));
-  cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(int32_t), NULL, &status);
+  cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(int32_t), db->read_len, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //n_events
   if (core->opt.verbosity > 1)
     print_size("n_events", n_bam_rec * sizeof(size_t));
-  cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(size_t), NULL, &status);
+  cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(size_t), n_events_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //event ptr
   if (core->opt.verbosity > 1)
     print_size("event ptr", n_bam_rec * sizeof(ptr_t));
-  cl_mem event_ptr = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(ptr_t), NULL, &status);
+  cl_mem event_ptr = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(ptr_t), event_ptr_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //scalings : already linear
   if (core->opt.verbosity > 1)
     print_size("Scalings", n_bam_rec * sizeof(scalings_t));
-  cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(scalings_t), NULL, &status);
+  cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(scalings_t), db->scalings, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //model : already linear
   if (core->opt.verbosity > 1)
     print_size("model", NUM_KMER * sizeof(model_t));
-  cl_mem model = clCreateBuffer(context, CL_MEM_READ_ONLY, NUM_KMER * sizeof(model_t), NULL, &status);
+  cl_mem model = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, NUM_KMER * sizeof(model_t), core->model, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //read
   if (core->opt.verbosity > 1)
     print_size("read array", sum_read_len * sizeof(char));
-  cl_mem read = clCreateBuffer(context, CL_MEM_READ_ONLY, sum_read_len * sizeof(char), NULL, &status);
+  cl_mem read = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sum_read_len * sizeof(char), read_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //event_table
   if (core->opt.verbosity > 1)
     print_size("event table", sum_n_events * sizeof(event_t));
-  cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_ONLY, sum_n_events * sizeof(event_t), NULL, &status);
+  cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sum_n_events * sizeof(event_t), event_table_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
   // //model_kmer_cache
@@ -458,54 +459,51 @@ void align_ocl(core_t *core, db_t *db)
 
   /**allocate output arrays**/
 
-  if (core->opt.verbosity > 1)
-    print_size("event align pairs", 2 * sum_n_events * sizeof(AlignedPair));
-  cl_mem event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, 2 * sum_n_events * sizeof(AlignedPair), NULL, &status);
-  checkError(status, "Failed clCreateBuffer");
+  // if (core->opt.verbosity > 1)
+  //   print_size("event align pairs", 2 * sum_n_events * sizeof(AlignedPair));
+  // cl_mem event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, 2 * sum_n_events * sizeof(AlignedPair), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
 
-  if (core->opt.verbosity > 1)
-    print_size("n_event_align_pairs", n_bam_rec * sizeof(int32_t));
-  cl_mem n_event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), NULL, &status);
-  checkError(status, "Failed clCreateBuffer");
+  // if (core->opt.verbosity > 1)
+  //   print_size("n_event_align_pairs", n_bam_rec * sizeof(int32_t));
+  // cl_mem n_event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
 
   // #endif
   //scratch arrays
+
   //bands
-  // size_t sum_n_bands = sum_n_events + sum_read_len; //todo : can be optimised
   if (core->opt.verbosity > 1)
     print_size("bands", sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
   cl_mem bands = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
+  
+  for (i = 0; i < sum_n_bands * ALN_BANDWIDTH; i++)
+  {
+    trace_host[i] = 0;
+  }
   //trace
+  if (core->opt.verbosity > 1)
+    print_size("trace", sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
+  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, trace_host, &status);
+  checkError(status, "Failed clCreateBuffer");
+
+  //  //trace
   // if (core->opt.verbosity > 1)
-  //   print_size("trace", sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
-  // cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
+  //   print_size("trace", sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH);
+  // cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH, NULL, &status);
   // checkError(status, "Failed clCreateBuffer");
 
-  // if (core->opt.verbosity > 1)
-  //   fprintf(stderr, "zero copy\n");
-  // uint8_t zeros[sum_n_bands * ALN_BANDWIDTH];
-  // for (i = 0; i < sum_n_bands * ALN_BANDWIDTH; i++)
+  // uint8_t zeros[n_bam_rec];
+  // for (i = 0; i < n_bam_rec; i++)
   // {
   //   zeros[i] = 0;
   // }
-  // status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, sum_n_bands * sizeof(uint8_t) * ALN_BANDWIDTH, zeros, 0, NULL, NULL);
+  // status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, NULL);
   // checkError(status, "Failed clEnqueueWriteBuffer");
 
-  //trace
-  if (core->opt.verbosity > 1)
-    print_size("trace", sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH);
-  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH, NULL, &status);
-  checkError(status, "Failed clCreateBuffer");
 
-  uint8_t zeros[n_bam_rec];
-  for (i = 0; i < n_bam_rec; i++)
-  {
-    zeros[i] = 0;
-  }
-  status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
 
   //band_lower_left
   if (core->opt.verbosity > 1)
@@ -518,81 +516,53 @@ void align_ocl(core_t *core, db_t *db)
   /* cuda mem copys*/
   realtime1 = realtime();
 
-  status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
-
-  status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0, sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
-
-  //read length : already linear hence direct copy
-
-  status = clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), db->read_len, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
-
-  status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(size_t), n_events_host, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
-
-  status = clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
-
-  status = clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
-
-  status = clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
-
-  //can be interleaved
-
-  status = clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, NULL);
-  checkError(status, "Failed clEnqueueWriteBuffer");
-
   align_cl_memcpy += (realtime() - realtime1);
 
   realtime1 = realtime();
 
-  status = clSetKernelArg(align_kernel_single, 0, sizeof(cl_mem), &event_align_pairs);
+  // status = clSetKernelArg(align_kernel_single, 0, sizeof(cl_mem), &event_align_pairs);
+  // checkError(status, "Failed to set kernel args");
+
+  // status = clSetKernelArg(align_kernel_single, 1, sizeof(cl_mem), &n_event_align_pairs);
+  // checkError(status, "Failed to set kernel args");
+
+  status = clSetKernelArg(align_kernel_single, 0, sizeof(cl_mem), &read);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 1, sizeof(cl_mem), &n_event_align_pairs);
+  status = clSetKernelArg(align_kernel_single, 1, sizeof(cl_mem), &read_len);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 2, sizeof(cl_mem), &read);
+  status = clSetKernelArg(align_kernel_single, 2, sizeof(cl_mem), &read_ptr);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 3, sizeof(cl_mem), &read_len);
+  status = clSetKernelArg(align_kernel_single, 3, sizeof(cl_mem), &event_table);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 4, sizeof(cl_mem), &read_ptr);
+  status = clSetKernelArg(align_kernel_single, 4, sizeof(cl_mem), &n_events);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 5, sizeof(cl_mem), &event_table);
+  status = clSetKernelArg(align_kernel_single, 5, sizeof(cl_mem), &event_ptr);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 6, sizeof(cl_mem), &n_events);
+  status = clSetKernelArg(align_kernel_single, 6, sizeof(cl_mem), &scalings);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 7, sizeof(cl_mem), &event_ptr);
+  status = clSetKernelArg(align_kernel_single, 7, sizeof(cl_mem), &model);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 8, sizeof(cl_mem), &scalings);
+  status = clSetKernelArg(align_kernel_single, 8, sizeof(int32_t), &n_bam_rec);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 9, sizeof(cl_mem), &model);
+  status = clSetKernelArg(align_kernel_single, 9, sizeof(cl_mem), &kmer_rank);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 10, sizeof(int32_t), &n_bam_rec);
+  status = clSetKernelArg(align_kernel_single, 10, sizeof(cl_mem), &bands);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 11, sizeof(cl_mem), &kmer_rank);
+  status = clSetKernelArg(align_kernel_single, 11, sizeof(cl_mem), &trace);
   checkError(status, "Failed to set kernel args");
 
-  status = clSetKernelArg(align_kernel_single, 12, sizeof(cl_mem), &bands);
-  checkError(status, "Failed to set kernel args");
-
-  status = clSetKernelArg(align_kernel_single, 13, sizeof(cl_mem), &trace);
-  checkError(status, "Failed to set kernel args");
-
-  status = clSetKernelArg(align_kernel_single, 14, sizeof(cl_mem), &band_lower_left);
+  status = clSetKernelArg(align_kernel_single, 12, sizeof(cl_mem), &band_lower_left);
   checkError(status, "Failed to set kernel args");
 
   // assert(BLOCK_LEN_BANDWIDTH >= ALN_BANDWIDTH);
@@ -633,6 +603,10 @@ void align_ocl(core_t *core, db_t *db)
   status = clEnqueueReadBuffer(queue, band_lower_left, CL_TRUE, 0, sum_n_bands * sizeof(EventKmerPair), band_lower_left_host, 0, NULL, NULL);
   checkError(status, "clEnqueueReadBuffer");
 
+  //kmer_ranks
+  status = clEnqueueReadBuffer(queue, kmer_rank, CL_TRUE, 0, sum_read_len * sizeof(size_t), kmer_rank_host, 0, NULL, NULL);
+  checkError(status, "clEnqueueReadBuffer");
+
   align_cl_memcpy_back += (realtime() - realtime1);
 
   realtime1 = realtime();
@@ -655,10 +629,10 @@ void align_ocl(core_t *core, db_t *db)
   checkError(status, "clReleaseMemObject failed!");
   status = clReleaseMemObject(kmer_rank);
   checkError(status, "clReleaseMemObject failed!");
-  status = clReleaseMemObject(event_align_pairs);
-  checkError(status, "clReleaseMemObject failed!");
-  status = clReleaseMemObject(n_event_align_pairs);
-  checkError(status, "clReleaseMemObject failed!");
+  // status = clReleaseMemObject(event_align_pairs);
+  // checkError(status, "clReleaseMemObject failed!");
+  // status = clReleaseMemObject(n_event_align_pairs);
+  // checkError(status, "clReleaseMemObject failed!");
   status = clReleaseMemObject(bands);
   checkError(status, "clReleaseMemObject failed!");
   status = clReleaseMemObject(trace);
@@ -1129,8 +1103,7 @@ void host_pre_processing(AlignedPair *event_align_pairs,
 
     int fills = 0;
 #ifdef DEBUG_ADAPTIVE
-    fprintf(stderr, "[trim] bi: %d o: %d e: %d k: %d s: %.2lf\n", 1,
-            first_trim_offset, 0, -1, bands[1][first_trim_offset]);
+    fprintf(stderr, "[trim] bi: %d o: %d e: %d k: %d s: %.2lf\n", 1, first_trim_offset, 0, -1, BAND_ARRAY(1, first_trim_offset));
 #endif
   }
 }
@@ -1249,10 +1222,10 @@ void host_post_processing(AlignedPair *event_align_pairs,
       }
     }
 
-#ifdef DEBUG_ADAPTIVE
+    // #ifdef DEBUG_ADAPTIVE
     fprintf(stderr, "[adaback] ei: %d ki: %d s: %.2f\n", curr_event_idx,
             curr_kmer_idx, max_score);
-#endif
+    // #endif
 
     int curr_gap = 0;
     int max_gap = 0;
