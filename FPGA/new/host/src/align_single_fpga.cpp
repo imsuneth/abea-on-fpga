@@ -262,13 +262,12 @@ void align_ocl(core_t *core, db_t *db)
   /**cuda pointers*/
   char *read_host;      //flattened reads sequences
   ptr_t *read_ptr_host; //index pointer for flattedned "reads"
-  // int32_t *read_len_host;
+
   int64_t sum_read_len;
   size_t *n_events_host;
   event_t *event_table_host;
   ptr_t *event_ptr_host;
   int64_t sum_n_events;
-  scalings_t *scalings_host;
   AlignedPair *event_align_pairs_host;
   int32_t *n_event_align_pairs_host;
   float *bands_host;
@@ -329,7 +328,7 @@ void align_ocl(core_t *core, db_t *db)
   //get the total size and create the pointers
 
   // n_events_host = (int32_t *)malloc(sizeof(int32_t) * n_bam_rec);
-  posix_memalign((void **)&n_events_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(size_t));
+  posix_memalign((void **)&n_events_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(int32_t));
   MALLOC_CHK(n_events_host);
 
   // event_ptr_host = (ptr_t *)malloc(sizeof(ptr_t) * n_bam_rec);
@@ -360,11 +359,13 @@ void align_ocl(core_t *core, db_t *db)
     ptr_t idx = event_ptr_host[i];
     memcpy(&event_table_host[idx], db->et[i].event,
            sizeof(event_t) * db->et[i].n);
+
+    // fprintf(stderr, "n_events:%d, event_table:\n", db->et[i].n);
+    // for(int j=0; j<db->et[0].n; j++){
+    //   fprintf(stderr, "%f ", db->et[i].event[j].mean);
+    // }
+    // fprintf(stderr, "\nend of event_table");
   }
-  if (core->opt.verbosity > 1)
-    fprintf(stderr, "here4\n");
-  // event_align_pairs_host =
-  //     (AlignedPair *)malloc(2 * sum_n_events * sizeof(AlignedPair));
 
   size_t sum_n_bands = sum_n_events + sum_read_len; //todo : can be optimised
   if (core->opt.verbosity > 1)
@@ -373,24 +374,6 @@ void align_ocl(core_t *core, db_t *db)
     fprintf(stderr, "sum_read_len: %d\n", sum_read_len);
     fprintf(stderr, "sum_n_bands: %d\n", sum_n_bands);
   }
-
-  posix_memalign((void **)&event_align_pairs_host, AOCL_ALIGNMENT, 2 * sum_n_events * sizeof(AlignedPair));
-  MALLOC_CHK(event_align_pairs_host);
-
-  posix_memalign((void **)&kmer_rank_host, AOCL_ALIGNMENT, sum_read_len * sizeof(size_t));
-  MALLOC_CHK(kmer_rank_host);
-
-  posix_memalign((void **)&band_lower_left_host, AOCL_ALIGNMENT, sum_n_bands * sizeof(EventKmerPair));
-  MALLOC_CHK(band_lower_left_host);
-
-  posix_memalign((void **)&trace_host, AOCL_ALIGNMENT, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
-  MALLOC_CHK(trace_host);
-
-  posix_memalign((void **)&bands_host, AOCL_ALIGNMENT, sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
-  MALLOC_CHK(bands_host);
-
-  posix_memalign((void **)&n_event_align_pairs_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(int32_t));
-  MALLOC_CHK(n_event_align_pairs_host);
 
   align_cl_preprocess += (realtime() - realtime1);
 
@@ -445,32 +428,11 @@ void align_ocl(core_t *core, db_t *db)
   cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sum_n_events * sizeof(event_t), event_table_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
-  // //model_kmer_cache
-  // if (core->opt.verbosity > 1)
-  //   print_size("model kmer cache", sum_read_len * sizeof(model_t));
-  // cl_mem model_kmer_cache = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(model_t), NULL, &status);
-  // checkError(status, "Failed clCreateBuffer");
-
   //kmer_rank
   if (core->opt.verbosity > 1)
     print_size("kmer rank", sum_read_len * sizeof(model_t));
   cl_mem kmer_rank = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(size_t), NULL, &status);
   checkError(status, "Failed clCreateBuffer");
-
-  /**allocate output arrays**/
-
-  // if (core->opt.verbosity > 1)
-  //   print_size("event align pairs", 2 * sum_n_events * sizeof(AlignedPair));
-  // cl_mem event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, 2 * sum_n_events * sizeof(AlignedPair), NULL, &status);
-  // checkError(status, "Failed clCreateBuffer");
-
-  // if (core->opt.verbosity > 1)
-  //   print_size("n_event_align_pairs", n_bam_rec * sizeof(int32_t));
-  // cl_mem n_event_align_pairs = clCreateBuffer(context, CL_MEM_READ_WRITE, n_bam_rec * sizeof(int32_t), NULL, &status);
-  // checkError(status, "Failed clCreateBuffer");
-
-  // #endif
-  //scratch arrays
 
   //bands
   if (core->opt.verbosity > 1)
@@ -478,18 +440,18 @@ void align_ocl(core_t *core, db_t *db)
   cl_mem bands = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
-  
+  //trace
+  posix_memalign((void **)&trace_host, AOCL_ALIGNMENT, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
+  MALLOC_CHK(trace_host);
   for (i = 0; i < sum_n_bands * ALN_BANDWIDTH; i++)
   {
     trace_host[i] = 0;
   }
-  //trace
   if (core->opt.verbosity > 1)
     print_size("trace", sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
   cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, trace_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
-  //  //trace
   // if (core->opt.verbosity > 1)
   //   print_size("trace", sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH);
   // cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH, NULL, &status);
@@ -503,18 +465,139 @@ void align_ocl(core_t *core, db_t *db)
   // status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, NULL);
   // checkError(status, "Failed clEnqueueWriteBuffer");
 
-
-
   //band_lower_left
   if (core->opt.verbosity > 1)
     print_size("band_lower_left", sizeof(EventKmerPair) * sum_n_bands);
   cl_mem band_lower_left = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
-  align_cl_malloc += (realtime() - realtime1);
+  // //read_ptr
+  // if (core->opt.verbosity > 1)
+  //   print_size("read_ptr array", n_bam_rec * sizeof(ptr_t));
+  // cl_mem read_ptr = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(ptr_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
 
-  /* cuda mem copys*/
-  realtime1 = realtime();
+  // //read_len
+  // if (core->opt.verbosity > 1)
+  //   print_size("read_lens", n_bam_rec * sizeof(int32_t));
+  // cl_mem read_len = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(int32_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //n_events
+  // if (core->opt.verbosity > 1)
+  //   print_size("n_events", n_bam_rec * sizeof(int32_t));
+  // cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(int32_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //event ptr
+  // if (core->opt.verbosity > 1)
+  //   print_size("event ptr", n_bam_rec * sizeof(ptr_t));
+  // cl_mem event_ptr = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(ptr_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //scalings : already linear
+  // if (core->opt.verbosity > 1)
+  //   print_size("Scalings", n_bam_rec * sizeof(scalings_t));
+  // cl_mem scalings = clCreateBuffer(context, CL_MEM_READ_ONLY, n_bam_rec * sizeof(scalings_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //model : already linear
+  // if (core->opt.verbosity > 1)
+  //   print_size("model", NUM_KMER * sizeof(model_t));
+  // cl_mem model = clCreateBuffer(context, CL_MEM_READ_ONLY, NUM_KMER * sizeof(model_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //read
+  // if (core->opt.verbosity > 1)
+  //   print_size("read array", sum_read_len * sizeof(char));
+  // cl_mem read = clCreateBuffer(context, CL_MEM_READ_ONLY, sum_read_len * sizeof(char), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //event_table
+  // if (core->opt.verbosity > 1)
+  //   print_size("event table", sum_n_events * sizeof(event_t));
+  // cl_mem event_table = clCreateBuffer(context, CL_MEM_READ_ONLY, sum_n_events * sizeof(event_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //kmer_rank
+  // if (core->opt.verbosity > 1)
+  //   print_size("kmer rank", sum_read_len * sizeof(model_t));
+  // cl_mem kmer_rank = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_read_len * sizeof(size_t), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //bands
+  // if (core->opt.verbosity > 1)
+  //   print_size("bands", sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
+  // cl_mem bands = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // //trace
+  // posix_memalign((void **)&trace_host, AOCL_ALIGNMENT, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
+  // MALLOC_CHK(trace_host);
+  // // for (i = 0; i < sum_n_bands * ALN_BANDWIDTH; i++)
+  // // {
+  // //   trace_host[i] = 0;
+  // // }
+  // if (core->opt.verbosity > 1)
+  //   print_size("trace", sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
+  // cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // // if (core->opt.verbosity > 1)
+  // //   print_size("trace", sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH);
+  // // cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * BLOCK_LEN_BANDWIDTH, NULL, &status);
+  // // checkError(status, "Failed clCreateBuffer");
+
+  // // uint8_t zeros[n_bam_rec];
+  // // for (i = 0; i < n_bam_rec; i++)
+  // // {
+  // //   zeros[i] = 0;
+  // // }
+  // // status = clEnqueueWriteBuffer(queue, trace, CL_TRUE, 0, n_bam_rec * sizeof(uint8_t), zeros, 0, NULL, NULL);
+  // // checkError(status, "Failed clEnqueueWriteBuffer");
+
+  // //band_lower_left
+  // if (core->opt.verbosity > 1)
+  //   print_size("band_lower_left", sizeof(EventKmerPair) * sum_n_bands);
+  // cl_mem band_lower_left = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_n_bands * sizeof(EventKmerPair), NULL, &status);
+  // checkError(status, "Failed clCreateBuffer");
+
+  // align_cl_malloc += (realtime() - realtime1);
+
+  // /* cuda mem copys*/
+  // realtime1 = realtime();
+
+  // //read_ptr
+  // status = clEnqueueWriteBuffer(queue, read_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), read_ptr_host, 0, NULL, NULL);
+  // checkError(status, "Failed clEnqueueWriteBuffer");
+
+  // //read
+  // status = clEnqueueWriteBuffer(queue, read, CL_TRUE, 0, sum_read_len * sizeof(char), read_host, 0, NULL, NULL);
+  // checkError(status, "Failed clEnqueueWriteBuffer");
+
+  // //read_len
+  // status = clEnqueueWriteBuffer(queue, read_len, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), db->read_len, 0, NULL, NULL);
+  // checkError(status, "Failed clEnqueueWriteBuffer");
+
+  // //n_events
+  // status = clEnqueueWriteBuffer(queue, n_events, CL_TRUE, 0, n_bam_rec * sizeof(int32_t), n_events_host, 0, NULL, NULL);
+  // checkError(status, "Failed clEnqueueWriteBuffer");
+
+  // //event_ptr
+  // status = clEnqueueWriteBuffer(queue, event_ptr, CL_TRUE, 0, n_bam_rec * sizeof(ptr_t), event_ptr_host, 0, NULL, NULL);
+  // checkError(status, "Failed clEnqueueWriteBuffer");
+
+  // //event_table
+  // status = clEnqueueWriteBuffer(queue, event_table, CL_TRUE, 0, sizeof(event_t) * sum_n_events, event_table_host, 0, NULL, NULL);
+  // checkError(status, "Failed clEnqueueWriteBuffer");
+
+  // //model
+  // status = clEnqueueWriteBuffer(queue, model, CL_TRUE, 0, NUM_KMER * sizeof(model_t), core->model, 0, NULL, NULL);
+  // checkError(status, "Failed clEnqueueWriteBuffer");
+
+  // //scalings
+  // status = clEnqueueWriteBuffer(queue, scalings, CL_TRUE, 0, sizeof(scalings_t) * n_bam_rec, db->scalings, 0, NULL, NULL);
+  // checkError(status, "Failed clEnqueueWriteBuffer");
 
   align_cl_memcpy += (realtime() - realtime1);
 
@@ -589,6 +672,15 @@ void align_ocl(core_t *core, db_t *db)
   align_kernel_time += (realtime() - realtime1);
   align_pre_kernel_time += (realtime() - realtime1);
 
+  posix_memalign((void **)&bands_host, AOCL_ALIGNMENT, sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
+  MALLOC_CHK(bands_host);
+
+  posix_memalign((void **)&band_lower_left_host, AOCL_ALIGNMENT, sum_n_bands * sizeof(EventKmerPair));
+  MALLOC_CHK(band_lower_left_host);
+
+  posix_memalign((void **)&kmer_rank_host, AOCL_ALIGNMENT, sum_read_len * sizeof(size_t));
+  MALLOC_CHK(kmer_rank_host);
+
   realtime1 = realtime();
 
   //bands_host,
@@ -646,6 +738,12 @@ void align_ocl(core_t *core, db_t *db)
   realtime1 = realtime();
 
   // fprintf(stderr, "Read back done \n");
+
+  posix_memalign((void **)&n_event_align_pairs_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(int32_t));
+  MALLOC_CHK(n_event_align_pairs_host);
+
+  posix_memalign((void **)&event_align_pairs_host, AOCL_ALIGNMENT, 2 * sum_n_events * sizeof(AlignedPair));
+  MALLOC_CHK(event_align_pairs_host);
 
   //HOST POST PROCESSING ===========================================================
   host_post_processing(event_align_pairs_host,

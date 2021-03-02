@@ -1,0 +1,13 @@
+Using AOCX: align.aocx
+lp_skip:-23.025851
+lp_stay:-0.479965
+lp_step:-0.964445
+lp_trim:-4.605170
+sequence_len:9512
+n_events:15433
+events[0].mean:131.010986
+scaling.scale:1.002728
+n_bands:24942
+fills:1527866
+band_lower_left:
+and_lower_left end

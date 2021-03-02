@@ -379,7 +379,7 @@ void align_ocl(core_t *core, db_t *db)
   cl_mem model = clCreateBuffer(context, CL_MEM_READ_ONLY, NUM_KMER * sizeof(model_t), NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
-  //sum_read_len
+  //read
   if (core->opt.verbosity > 1)
     print_size("read array", sum_read_len * sizeof(char));
   cl_mem read = clCreateBuffer(context, CL_MEM_READ_ONLY, sum_read_len * sizeof(char), NULL, &status);

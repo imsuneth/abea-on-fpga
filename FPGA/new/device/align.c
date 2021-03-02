@@ -446,6 +446,8 @@ int32_t align(AlignedPair *out_2, char *sequence, int32_t sequence_len,
         }
     }
 
+    
+
     //
     // Backtrack to compute alignment
     //

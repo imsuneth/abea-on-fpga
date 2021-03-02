@@ -316,7 +316,6 @@ align_kernel_core_2d_shm(
   //   printf("Completion:%lu\n", i);
 
   __local float bands_shm[3][ALN_BANDWIDTH];
-  __local float trace_shm[ALN_BANDWIDTH];
   // __local float bands_shm[ALN_BANDWIDTH][3];
   __local EventKmerPair band_lower_left_shm[3];
 
@@ -363,7 +362,7 @@ align_kernel_core_2d_shm(
   int32_t n_cols = n_kmers + 1;
   int32_t n_bands = n_rows + n_cols;
 
-  if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+  // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
     BAND_ARRAY_SHM(0, offset) = BAND_ARRAY(2, offset);
     BAND_ARRAY_SHM(1, offset) = BAND_ARRAY(1, offset);
     BAND_ARRAY_SHM(2, offset) = BAND_ARRAY(0, offset);
@@ -371,7 +370,7 @@ align_kernel_core_2d_shm(
     band_lower_left_shm[0] = band_lower_left[2];
     band_lower_left_shm[1] = band_lower_left[1];
     band_lower_left_shm[2] = band_lower_left[0];
-  }
+  // }
   // __syncthreads(); //CUDA
   // printf("IN CORE KERNEL - IN LOOP - before barrier 0!\n");
   barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
@@ -383,12 +382,9 @@ align_kernel_core_2d_shm(
   for (int32_t band_idx = 2; band_idx < n_bands; ++band_idx) {
 
     // priclntf("Core Kernel - i: %lu, band_idx: %d\n", i, band_idx);
-        
+
     // printf("IN CORE KERNEL - In loop!\n");
-    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
-      for (int j = 0; j < ALN_BANDWIDTH; j++) {
-          trace_shm[j] = 0;
-        }
+    // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
       if (offset == 0) {
         // Determine placement of this band according to Suzuki's adaptive
         // algorithm When both ll and ur are out-of-band (ob) we alternate
@@ -433,15 +429,14 @@ align_kernel_core_2d_shm(
           if (event_idx >= 0 && event_idx < n_events) {
             // BAND_ARRAY(band_idx,trim_offset) = lp_trim * (event_idx + 1);
             BAND_ARRAY_SHM(0, trim_offset) = lp_trim * (event_idx + 1);
-            // TRACE_ARRAY(band_idx, trim_offset) = FROM_U;
-            trace_shm[trim_offset] = FROM_U;
+            TRACE_ARRAY(band_idx, trim_offset) = FROM_U;
           } else {
             // BAND_ARRAY(band_idx,trim_offset) = -INFINITY;
             BAND_ARRAY_SHM(0, trim_offset) = -INFINITY;
           }
         }
       }
-    }
+    // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 1!\n");
     barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
@@ -453,7 +448,7 @@ align_kernel_core_2d_shm(
     int event_max_offset;
     int min_offset;
     int max_offset;
-    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+    // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
       // Get the offsets for the first and last event and kmer
       // We restrict the inner loop to only these values
       kmer_min_offset = band_kmer_to_offset_shm(0, 0);
@@ -466,12 +461,12 @@ align_kernel_core_2d_shm(
 
       max_offset = MIN(kmer_max_offset, event_max_offset);
       max_offset = MIN(max_offset, bandwidth);
-    }
+    // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 2!\n");
     barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
     // printf("IN CORE KERNEL - IN LOOP - after barrier 2!\n");
-    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+    // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
       if (offset >= min_offset && offset < max_offset) {
 
         int event_idx = event_at_offset_shm(0, offset);
@@ -554,18 +549,16 @@ align_kernel_core_2d_shm(
 #endif // DEBUG_ADAPTIVE \
        // BAND_ARRAY(band_idx,offset) = max_score;
         BAND_ARRAY_SHM(0, offset) = max_score;
-        // TRACE_ARRAY(band_idx, offset) = from;
-        trace_shm[offset] = from;
+        TRACE_ARRAY(band_idx, offset) = from;
         // fills += 1;
       }
-      
-    }
+    // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 3!\n");
     barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
     // printf("IN CORE KERNEL - IN LOOP - after barrier 3!\n");
 
-    if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
+    // if (i < n_bam_rec && offset < ALN_BANDWIDTH) {
       BAND_ARRAY(band_idx, offset) = BAND_ARRAY_SHM(0, offset);
 
       BAND_ARRAY_SHM(2, offset) = BAND_ARRAY_SHM(1, offset);
@@ -576,10 +569,7 @@ align_kernel_core_2d_shm(
         band_lower_left_shm[2] = band_lower_left_shm[1];
         band_lower_left_shm[1] = band_lower_left_shm[0];
       }
-      for (int j = 0; j < ALN_BANDWIDTH; j++) {
-          TRACE_ARRAY(band_idx, j) = trace_shm[j];
-        }
-    }
+    // }
     // __syncthreads();
     // printf("IN CORE KERNEL - IN LOOP - before barrier 4!\n");
     barrier(CLK_LOCAL_MEM_FENCE); // OpenCL
