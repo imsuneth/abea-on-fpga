@@ -367,6 +367,7 @@ void align_ocl(core_t *core, db_t *db)
     fprintf(stderr, "sum_read_len: %d\n", sum_read_len);
     fprintf(stderr, "sum_n_bands: %d\n", sum_n_bands);
   }
+  
   posix_memalign((void **)&event_align_pairs_host, AOCL_ALIGNMENT, 2 * sum_n_events * sizeof(AlignedPair));
   MALLOC_CHK(event_align_pairs_host);
 

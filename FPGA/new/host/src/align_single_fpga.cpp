@@ -18,7 +18,8 @@ using namespace aocl_utils;
 #include "f5cmisc_cu.h"
 #include "f5cmisc.h"
 
-int print_results = true;
+const char *binary_name = "align";
+int print_results = false;
 #define VERBOSITY 0
 
 #define AOCL_ALIGNMENT 64
@@ -61,20 +62,11 @@ static void display_device_info(cl_device_id device);
 
 static void align_ocl(core_t *core, db_t *db);
 
-void host_pre_processing(AlignedPair *event_align_pairs,
-                         int32_t *n_event_align_pairs,
-                         char *read, int32_t *read_len,
-                         ptr_t *read_ptr, event_t *event_table,
-                         size_t *n_events1, ptr_t *event_ptr,
-                         scalings_t *scalings, model_t *models,
-                         int32_t n_bam_rec, uint32_t *kmer_ranks1,
-                         float *band, uint8_t *traces,
-                         EventKmerPair *band_lower_lefts);
 void host_post_processing(AlignedPair *event_align_pairs,
                           int32_t *n_event_align_pairs,
                           char *read, int32_t *read_len,
                           ptr_t *read_ptr, event_t *event_table,
-                          size_t *n_events1, ptr_t *event_ptr,
+                          int32_t *n_events1, ptr_t *event_ptr,
                           scalings_t *scalings, model_t *models,
                           int32_t n_bam_rec, uint32_t *kmer_ranks1,
                           float *band, uint8_t *traces,
@@ -264,7 +256,7 @@ void align_ocl(core_t *core, db_t *db)
   ptr_t *read_ptr_host; //index pointer for flattedned "reads"
 
   int64_t sum_read_len;
-  size_t *n_events_host;
+  int32_t *n_events_host;
   event_t *event_table_host;
   ptr_t *event_ptr_host;
   int64_t sum_n_events;
@@ -339,16 +331,23 @@ void align_ocl(core_t *core, db_t *db)
   sum_n_events = 0;
   for (i = 0; i < n_bam_rec; i++)
   {
-    n_events_host[i] = db->et[i].n;
+    n_events_host[i] = (int32_t) db->et[i].n;
     event_ptr_host[i] = sum_n_events;
     sum_n_events += db->et[i].n;
+    // fprintf(stderr, "read_i:%d, sum_n_events: %d\n", i, db->et[i].n);
   }
   if (core->opt.verbosity > 1)
     fprintf(stderr, "here2\n");
+
   //event table flatten
   //form the temporary flattened array on host
   // event_table_host = (event_t *)malloc(sizeof(event_t) * sum_n_events);
+
+  // fprintf(stderr, "sum_n_events: %d\n", sum_n_events);
+
   posix_memalign((void **)&event_table_host, AOCL_ALIGNMENT, sum_n_events * sizeof(event_t));
+  if (core->opt.verbosity > 1)
+    fprintf(stderr, "mallocd\n");
   MALLOC_CHK(event_table_host);
 
   if (core->opt.verbosity > 1)
@@ -375,6 +374,24 @@ void align_ocl(core_t *core, db_t *db)
     fprintf(stderr, "sum_n_bands: %d\n", sum_n_bands);
   }
 
+  posix_memalign((void **)&event_align_pairs_host, AOCL_ALIGNMENT, 2 * sum_n_events * sizeof(AlignedPair));
+  MALLOC_CHK(event_align_pairs_host);
+
+  posix_memalign((void **)&kmer_rank_host, AOCL_ALIGNMENT, sum_read_len * sizeof(size_t));
+  MALLOC_CHK(kmer_rank_host);
+
+  posix_memalign((void **)&band_lower_left_host, AOCL_ALIGNMENT, sum_n_bands * sizeof(EventKmerPair));
+  MALLOC_CHK(band_lower_left_host);
+
+  posix_memalign((void **)&trace_host, AOCL_ALIGNMENT, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
+  MALLOC_CHK(trace_host);
+
+  posix_memalign((void **)&bands_host, AOCL_ALIGNMENT, sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
+  MALLOC_CHK(bands_host);
+
+  posix_memalign((void **)&n_event_align_pairs_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(int32_t));
+  MALLOC_CHK(n_event_align_pairs_host);
+
   align_cl_preprocess += (realtime() - realtime1);
 
   /** Start OpenCL memory allocation**/
@@ -395,7 +412,7 @@ void align_ocl(core_t *core, db_t *db)
   //n_events
   if (core->opt.verbosity > 1)
     print_size("n_events", n_bam_rec * sizeof(size_t));
-  cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(size_t), n_events_host, &status);
+  cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(int32_t), n_events_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //event ptr
@@ -441,15 +458,13 @@ void align_ocl(core_t *core, db_t *db)
   checkError(status, "Failed clCreateBuffer");
 
   //trace
-  posix_memalign((void **)&trace_host, AOCL_ALIGNMENT, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
-  MALLOC_CHK(trace_host);
-  for (i = 0; i < sum_n_bands * ALN_BANDWIDTH; i++)
-  {
-    trace_host[i] = 0;
-  }
+  // for (i = 0; i < sum_n_bands * ALN_BANDWIDTH; i++)
+  // {
+  //   trace_host[i] = 0;
+  // }
   if (core->opt.verbosity > 1)
     print_size("trace", sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH);
-  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, trace_host, &status);
+  cl_mem trace = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(uint8_t) * sum_n_bands * ALN_BANDWIDTH, NULL, &status);
   checkError(status, "Failed clCreateBuffer");
 
   // if (core->opt.verbosity > 1)
@@ -672,15 +687,6 @@ void align_ocl(core_t *core, db_t *db)
   align_kernel_time += (realtime() - realtime1);
   align_pre_kernel_time += (realtime() - realtime1);
 
-  posix_memalign((void **)&bands_host, AOCL_ALIGNMENT, sizeof(float) * sum_n_bands * ALN_BANDWIDTH);
-  MALLOC_CHK(bands_host);
-
-  posix_memalign((void **)&band_lower_left_host, AOCL_ALIGNMENT, sum_n_bands * sizeof(EventKmerPair));
-  MALLOC_CHK(band_lower_left_host);
-
-  posix_memalign((void **)&kmer_rank_host, AOCL_ALIGNMENT, sum_read_len * sizeof(size_t));
-  MALLOC_CHK(kmer_rank_host);
-
   realtime1 = realtime();
 
   //bands_host,
@@ -737,13 +743,8 @@ void align_ocl(core_t *core, db_t *db)
   /** post work**/
   realtime1 = realtime();
 
-  // fprintf(stderr, "Read back done \n");
-
-  posix_memalign((void **)&n_event_align_pairs_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(int32_t));
-  MALLOC_CHK(n_event_align_pairs_host);
-
-  posix_memalign((void **)&event_align_pairs_host, AOCL_ALIGNMENT, 2 * sum_n_events * sizeof(AlignedPair));
-  MALLOC_CHK(event_align_pairs_host);
+if (core->opt.verbosity > 1)
+  fprintf(stderr, "Read back done \n");
 
   //HOST POST PROCESSING ===========================================================
   host_post_processing(event_align_pairs_host,
@@ -773,18 +774,17 @@ void align_ocl(core_t *core, db_t *db)
     memcpy(db->event_align_pairs[i], &event_align_pairs_host[idx * 2], sizeof(AlignedPair) * db->n_event_align_pairs[i]);
   }
 
-  free(read_host);
   free(read_ptr_host);
-
+  free(read_host);
   free(n_events_host);
-  free(event_table_host);
   free(event_ptr_host);
-  free(event_align_pairs_host);
-  free(n_event_align_pairs_host);
-  free(bands_host);
+  free(event_table_host);
   free(trace_host);
+  free(bands_host);
   free(band_lower_left_host);
   free(kmer_rank_host);
+  free(n_event_align_pairs_host);
+  free(event_align_pairs_host);
 
   align_cl_postprocess += (realtime() - realtime1);
 }
@@ -830,7 +830,7 @@ bool init()
 
   // Create the program.
 
-  std::string binary_file = getBoardBinaryFile("align", device);
+  std::string binary_file = getBoardBinaryFile(binary_name, device);
   printf("Using AOCX: %s\n", binary_file.c_str());
   program = createProgramFromBinary(context, binary_file.c_str(), &device, 1);
 
@@ -1083,129 +1083,6 @@ static inline float log_probability_match_r9(scalings_t scaling,
 #define TRACE_ARRAY(r, c) (trace[((r) * (ALN_BANDWIDTH) + (c))])
 #endif
 
-void host_pre_processing(AlignedPair *event_align_pairs,
-                         int32_t *n_event_align_pairs,
-                         char *read, int32_t *read_len,
-                         ptr_t *read_ptr, event_t *event_table,
-                         size_t *n_events1, ptr_t *event_ptr,
-                         scalings_t *scalings, model_t *models,
-                         int32_t n_bam_rec, uint32_t *kmer_ranks1,
-                         float *band, uint8_t *traces,
-                         EventKmerPair *band_lower_lefts)
-{
-
-  for (int32_t ii = 0; ii < n_bam_rec; ii++)
-  {
-    // fprintf(stderr, "%s\n", sequence);
-    // fprintf(stderr, "Scaling %f %f", scaling.scale, scaling.shift);
-    // printf("read:%lu\n", ii);
-    // AlignedPair* out_2 = db->event_align_pairs[i];
-    // char* sequence = db->read[i];
-    // int32_t sequence_len = db->read_len[i];
-    // event_table events = db->et[i];
-    // model_t* models = core->model;
-    // scalings_t scaling = db->scalings[i];
-    // float sample_rate = db->f5[i]->sample_rate;
-
-    AlignedPair *out_2 = &event_align_pairs[event_ptr[ii] * 2];
-    char *sequence = &read[read_ptr[ii]];
-    int32_t sequence_len = read_len[ii];
-    // printf("read_len[%lu] = %d\n", ii, read_len[ii]);
-    event_t *events = &event_table[event_ptr[ii]];
-    size_t n_event = n_events1[ii];
-
-    scalings_t scaling = scalings[ii];
-
-    float *bands =
-        &band[(read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH];
-
-    uint8_t *trace =
-        &traces[(read_ptr[ii] + event_ptr[ii]) * ALN_BANDWIDTH];
-
-    EventKmerPair *band_lower_left =
-        &band_lower_lefts[read_ptr[ii] + event_ptr[ii]];
-
-    uint32_t *kmer_ranks = &kmer_ranks1[read_ptr[ii]];
-
-    // size_t n_events = events[strand_idx].n;
-    size_t n_events = n_event; // <------ diff
-    // printf("n_events= %ld\n", n_events);
-    int32_t n_kmers = sequence_len - KMER_SIZE + 1;
-
-    // banding
-    double events_per_kmer = (double)n_events / n_kmers;
-    double p_stay = 1 - (1 / (events_per_kmer + 1));
-
-    // setting a tiny skip penalty helps keep the true alignment within the adaptive band
-    // this was empirically determined
-
-    double lp_skip = log(epsilon);
-    double lp_stay = log(p_stay);
-    double lp_step = log(1.0 - exp(lp_skip) - exp(lp_stay));
-    double lp_trim = log(0.01);
-    size_t n_rows = n_events + 1;
-    size_t n_cols = n_kmers + 1;
-    size_t n_bands = n_rows + n_cols;
-
-    // size_t *kmer_ranks = (size_t *)malloc(sizeof(size_t) * n_kmers);
-    // MALLOC_CHK(kmer_ranks);
-    for (size_t i = 0; i < n_kmers; ++i)
-    {
-      //>>>>>>>>> New replacement begin
-      char *substring = &sequence[i];
-      // fprintf(stderr, "substring: %s\n", substring);
-      kmer_ranks[i] = get_kmer_rank(substring, KMER_SIZE);
-      //<<<<<<<<< New replacement over
-    }
-
-    // float *bands = (float *)malloc(sizeof(float) * n_bands * bandwidth);
-    // MALLOC_CHK(bands);
-    // uint8_t *trace = (uint8_t *)malloc(sizeof(uint8_t) * n_bands * bandwidth);
-    // MALLOC_CHK(trace);
-
-    for (size_t i = 0; i < n_bands; i++)
-    {
-      for (int j = 0; j < bandwidth; j++)
-      {
-        // fprintf(stderr, "here1 \n");
-        BAND_ARRAY(i, j) = -INFINITY;
-        // fprintf(stderr, "here2 \n");
-        TRACE_ARRAY(i, j) = 0;
-        // fprintf(stderr, "here3 \n");
-      }
-    }
-
-    //>>>>>>>>>>>>>>>>>New Replacement Begin
-    // struct EventKmerPair *band_lower_left =
-    //     (struct EventKmerPair *)malloc(sizeof(struct EventKmerPair) * n_bands);
-    // MALLOC_CHK(band_lower_left);
-    //std::vector<EventKmerPair> band_lower_left(n_);
-    //<<<<<<<<<<<<<<<<<New Replacement over
-
-    // initialize range of first two
-    band_lower_left[0].event_idx = half_bandwidth - 1;
-    band_lower_left[0].kmer_idx = -1 - half_bandwidth;
-    band_lower_left[1] = move_down(band_lower_left[0]);
-
-    int start_cell_offset = band_kmer_to_offset(0, -1);
-    assert(is_offset_valid(start_cell_offset));
-    assert(band_event_to_offset(0, -1) == start_cell_offset);
-    BAND_ARRAY(0, start_cell_offset) = 0.0f;
-
-    // band 1: first event is trimmed
-    int first_trim_offset = band_event_to_offset(1, 0);
-    assert(kmer_at_offset(1, first_trim_offset) == -1);
-    assert(is_offset_valid(first_trim_offset));
-    BAND_ARRAY(1, first_trim_offset) = lp_trim;
-    TRACE_ARRAY(1, first_trim_offset) = FROM_U;
-
-    int fills = 0;
-#ifdef DEBUG_ADAPTIVE
-    fprintf(stderr, "[trim] bi: %d o: %d e: %d k: %d s: %.2lf\n", 1, first_trim_offset, 0, -1, BAND_ARRAY(1, first_trim_offset));
-#endif
-  }
-}
-
 #define event_kmer_to_band(ei, ki) (ei + 1) + (ki + 1)
 #define band_event_to_offset(bi, ei) band_lower_left[bi].event_idx - (ei)
 #define band_kmer_to_offset(bi, ki) (ki) - band_lower_left[bi].kmer_idx
@@ -1217,7 +1094,7 @@ void host_post_processing(AlignedPair *event_align_pairs,
                           int32_t *n_event_align_pairs,
                           char *read, int32_t *read_len,
                           ptr_t *read_ptr, event_t *event_table,
-                          size_t *n_events1, ptr_t *event_ptr,
+                          int32_t *n_events1, ptr_t *event_ptr,
                           scalings_t *scalings, model_t *models,
                           int32_t n_bam_rec, uint32_t *kmer_ranks1,
                           float *band, uint8_t *traces,
@@ -1320,10 +1197,10 @@ void host_post_processing(AlignedPair *event_align_pairs,
       }
     }
 
-    // #ifdef DEBUG_ADAPTIVE
+#ifdef DEBUG_ADAPTIVE
     fprintf(stderr, "[adaback] ei: %d ki: %d s: %.2f\n", curr_event_idx,
             curr_kmer_idx, max_score);
-    // #endif
+#endif
 
     int curr_gap = 0;
     int max_gap = 0;

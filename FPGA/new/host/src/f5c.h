@@ -120,7 +120,7 @@ typedef struct
     //int32_t state; //todo : always -1 can be removed
 } event_t;
 
- // event table : adapted from scrappie
+// event table : adapted from scrappie
 typedef struct
 {
     size_t n;     //todo : int32_t not enough?
