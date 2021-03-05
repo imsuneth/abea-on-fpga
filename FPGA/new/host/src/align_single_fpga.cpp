@@ -19,7 +19,7 @@ using namespace aocl_utils;
 #include "f5cmisc.h"
 
 const char *binary_name = "align";
-int print_results = true;
+int print_results = false;
 #define VERBOSITY 0
 
 #define AOCL_ALIGNMENT 64
