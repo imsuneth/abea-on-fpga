@@ -19,7 +19,7 @@ using namespace aocl_utils;
 #include "f5cmisc.h"
 
 const char *binary_name = "align";
-int print_results = true;
+int print_results = false;
 #define VERBOSITY 0
 
 #define AOCL_ALIGNMENT 64
@@ -46,6 +46,7 @@ static cl_device_id device = NULL;
 static cl_context context = NULL;
 static cl_command_queue queue = NULL;
 static cl_kernel align_kernel_single = NULL;
+static cl_kernel align_kernel_pre = NULL;
 
 static cl_program program = NULL;
 
@@ -618,11 +619,68 @@ void align_ocl(core_t *core, db_t *db)
 
   realtime1 = realtime();
 
+  //******************************************************************************************************
+  /*pre kernel*/
+  //******************************************************************************************************
+
+  // Set the kernel argument (argument 0)
+  status = clSetKernelArg(align_kernel_pre, 0, sizeof(cl_mem), &read);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 1\n");
+  status = clSetKernelArg(align_kernel_pre, 1, sizeof(cl_mem), &read_len);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 2\n");
+  status = clSetKernelArg(align_kernel_pre, 2, sizeof(cl_mem), &read_ptr);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 3\n");
+  // status = clSetKernelArg(align_kernel_pre, 3, sizeof(cl_mem), &n_events);
+  // checkError(status, "Failed to set kernel args to align_kernel_pre");
+  status = clSetKernelArg(align_kernel_pre, 3, sizeof(cl_mem), &event_ptr);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 4\n");
+  status = clSetKernelArg(align_kernel_pre, 4, sizeof(cl_mem), &model);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 5\n");
+  // fprintf(stderr, "n_bam_rec %d\n", n_bam_rec);
+  status = clSetKernelArg(align_kernel_pre, 5, sizeof(int32_t), &n_bam_rec);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 6\n");
+  status = clSetKernelArg(align_kernel_pre, 6, sizeof(cl_mem), &kmer_rank);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 7\n");
+  status = clSetKernelArg(align_kernel_pre, 7, sizeof(cl_mem), &bands);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 8\n");
+  status = clSetKernelArg(align_kernel_pre, 8, sizeof(cl_mem), &trace);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+  // fprintf(stderr, "Before Pre 9\n");
+  status = clSetKernelArg(align_kernel_pre, 9, sizeof(cl_mem), &band_lower_left);
+  checkError(status, "Failed to set kernel args to align_kernel_pre");
+
+  // fprintf(stderr, "Pre - args set\n");
+
+  const size_t gridpre[2] = {BLOCK_LEN_BANDWIDTH, (size_t)(db->n_bam_rec + BLOCK_LEN_READS - 1)}; //global
+  const size_t blockpre[2] = {BLOCK_LEN_BANDWIDTH, BLOCK_LEN_READS};                              //local
+
+  if (core->opt.verbosity > 1)
+    fprintf(stderr, "grid_pre %zu,%zu, block_pre %zu,%zu\n", gridpre[0], gridpre[1], blockpre[0], blockpre[1]);
+
+  if (core->opt.verbosity > 0)
+    printf("Calling Pre kernel\n");
+
+  clEnqueueNDRangeKernel(queue, align_kernel_pre, 2, NULL, gridpre, blockpre, 0, NULL, NULL);
+  status = clFinish(queue);
+  checkError(status, "Failed to finish");
+
+  align_kernel_time += (realtime() - realtime1);
+  align_pre_kernel_time += (realtime() - realtime1);
+
   // status = clSetKernelArg(align_kernel_single, 0, sizeof(cl_mem), &event_align_pairs);
   // checkError(status, "Failed to set kernel args");
 
   // status = clSetKernelArg(align_kernel_single, 1, sizeof(cl_mem), &n_event_align_pairs);
   // checkError(status, "Failed to set kernel args");
+  realtime1 = realtime();
 
   status = clSetKernelArg(align_kernel_single, 0, sizeof(cl_mem), &read);
   checkError(status, "Failed to set kernel args");
@@ -685,7 +743,7 @@ void align_ocl(core_t *core, db_t *db)
   // if (core->opt.verbosity > 1)
   //   fprintf(stderr, "[%s::%.3f*%.2f] align-pre kernel done\n", __func__, realtime() - realtime1, cputime() / (realtime() - realtime1));
   align_kernel_time += (realtime() - realtime1);
-  align_pre_kernel_time += (realtime() - realtime1);
+  align_core_kernel_time += (realtime() - realtime1);
 
   realtime1 = realtime();
 
@@ -841,10 +899,14 @@ bool init()
 
   // Create the kernel - name passed in here must match kernel name in the
   // original CL file, that was compiled into an AOCX file using the AOC tool
-  const char *kernel1_name = "align_kernel_single"; // Kernel name, as defined in the CL file
+  const char *kernel1_name = "align_kernel_pre"; // Kernel name, as defined in the CL file
+  const char *kernel2_name = "align_kernel_single";
 
-  align_kernel_single = clCreateKernel(program, kernel1_name, &status);
+  align_kernel_pre = clCreateKernel(program, kernel1_name, &status);
   checkError(status, "Failed to pre create kernel");
+
+  align_kernel_single = clCreateKernel(program, kernel2_name, &status);
+  checkError(status, "Failed to swi create kernel");
 
   return true;
 }
@@ -856,6 +918,10 @@ void cleanup()
   if (align_kernel_single)
   {
     clReleaseKernel(align_kernel_single);
+  }
+  if (align_kernel_pre)
+  {
+    clReleaseKernel(align_kernel_pre);
   }
 
   if (program)
