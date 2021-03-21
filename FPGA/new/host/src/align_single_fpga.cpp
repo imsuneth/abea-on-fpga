@@ -1196,7 +1196,7 @@ void host_post_processing(AlignedPair *event_align_pairs,
         }
       }
     }
-
+    // fprintf(stderr, "post:1");
 #ifdef DEBUG_ADAPTIVE
     fprintf(stderr, "[adaback] ei: %d ki: %d s: %.2f\n", curr_event_idx,
             curr_kmer_idx, max_score);
@@ -1259,7 +1259,7 @@ void host_post_processing(AlignedPair *event_align_pairs,
         max_gap = MAX(curr_gap, max_gap);
       }
     }
-
+// fprintf(stderr, "post:2");
     //>>>>>>>>New replacement begin
     // std::reverse(out.begin(), out.end());
     int c;
@@ -1274,7 +1274,7 @@ void host_post_processing(AlignedPair *event_align_pairs,
       out_2[end].read_pos = read_pos_temp;
       end--;
     }
-
+// fprintf(stderr, "post:3");
     // if(outIndex>1){
     //   AlignedPair temp={out_2[0].ref_pos,out[0].read_pos};
     //   int i;
@@ -1305,7 +1305,7 @@ void host_post_processing(AlignedPair *event_align_pairs,
       //out_2 = NULL;
       //<<<<<<<<<<<<<New replacement over
     }
-
+// fprintf(stderr, "post:4");
     //fprintf(stderr, "ada\t%s\t%s\t%.2lf\t%zu\t%.2lf\t%d\t%d\t%d\n", read.read_name.substr(0, 6).c_str(), failed ? "FAILED" : "OK", events_per_kmer, sequence.size(), avg_log_emission, curr_event_idx, max_gap, fills);
     //outSize=outIndex;
     //if(outIndex>500000)fprintf(stderr, "Max outSize %d\n", outIndex);

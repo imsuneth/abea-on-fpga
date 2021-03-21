@@ -113,7 +113,7 @@ typedef struct
     float stdv;
     //int32_t pos;   //todo : always -1 can be removed
     //int32_t state; //todo : always -1 can be removed
-} __attribute__((packed)) __attribute__((aligned(32))) event1_t; //total 20bytes
+} __attribute__((packed)) __attribute__((aligned(32))) event1_t; //total 20 bytes, min 4 bytes
 
 // event table : adapted from scrappie
 // typedef struct
@@ -140,7 +140,7 @@ typedef struct
 //float sd_stdv;
 //float weight;
 #endif
-} model_t; //total 16 bytes __attribute__((aligned(4)))
+} __attribute__((packed)) __attribute__((aligned(16))) model_t; //total 16 bytes, min 4 bytes
 
 //scaling parameters for the signal : taken from nanopolish
 typedef struct
@@ -159,21 +159,21 @@ typedef struct
 #endif
     //float scaled_var;
     //float log_scaled_var;
-} __attribute__((packed)) __attribute__((aligned(32))) scalings_t; //total 24bytes
+} __attribute__((packed)) __attribute__((aligned(32))) scalings_t; //total 24bytes, min 4bytes
 
 //from nanopolish
 typedef struct
 {
     int event_idx;
     int kmer_idx;
-} EventKmerPair; //total 8bytes __attribute__((aligned(4)))
+} __attribute__((packed)) __attribute__((aligned(8))) EventKmerPair; //total 8bytes, min 4bytes
 
 //from nanopolish
 typedef struct
 {
     int ref_pos;
     int read_pos;
-} AlignedPair; //total 8bytes __attribute__((aligned(4)))
+} __attribute__((packed)) __attribute__((aligned(8))) AlignedPair; //total 8bytes, min 4bytes
 
 //from nanopolish
 // typedef struct

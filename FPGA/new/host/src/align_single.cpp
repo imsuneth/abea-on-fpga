@@ -19,7 +19,7 @@ using namespace aocl_utils;
 #include "f5cmisc.h"
 
 const char *binary_name = "align";
-int print_results = true;
+int print_results = false;
 #define VERBOSITY 0
 
 #define AOCL_ALIGNMENT 64
@@ -64,7 +64,7 @@ void host_pre_processing(AlignedPair *event_align_pairs,
                          int32_t *n_event_align_pairs,
                          char *read, int32_t *read_len,
                          ptr_t *read_ptr, event_t *event_table,
-                         size_t *n_events1, ptr_t *event_ptr,
+                         int32_t *n_events1, ptr_t *event_ptr,
                          scalings_t *scalings, model_t *models,
                          int32_t n_bam_rec, uint32_t *kmer_ranks1,
                          float *band, uint8_t *traces,
@@ -73,7 +73,7 @@ void host_post_processing(AlignedPair *event_align_pairs,
                           int32_t *n_event_align_pairs,
                           char *read, int32_t *read_len,
                           ptr_t *read_ptr, event_t *event_table,
-                          size_t *n_events1, ptr_t *event_ptr,
+                          int32_t *n_events1, ptr_t *event_ptr,
                           scalings_t *scalings, model_t *models,
                           int32_t n_bam_rec, uint32_t *kmer_ranks1,
                           float *band, uint8_t *traces,
@@ -261,7 +261,7 @@ void align_ocl(core_t *core, db_t *db)
   ptr_t *read_ptr_host; //index pointer for flattedned "reads"
 
   int64_t sum_read_len;
-  size_t *n_events_host;
+  int32_t *n_events_host;
   event_t *event_table_host;
   ptr_t *event_ptr_host; //
   int64_t sum_n_events;
@@ -323,7 +323,7 @@ void align_ocl(core_t *core, db_t *db)
   //get the total size and create the pointers
 
   // n_events_host = (int32_t *)malloc(sizeof(int32_t) * n_bam_rec);
-  posix_memalign((void **)&n_events_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(size_t));
+  posix_memalign((void **)&n_events_host, AOCL_ALIGNMENT, n_bam_rec * sizeof(int32_t));
   MALLOC_CHK(n_events_host);
 
   // event_ptr_host = (ptr_t *)malloc(sizeof(ptr_t) * n_bam_rec);
@@ -367,7 +367,7 @@ void align_ocl(core_t *core, db_t *db)
     fprintf(stderr, "sum_read_len: %d\n", sum_read_len);
     fprintf(stderr, "sum_n_bands: %d\n", sum_n_bands);
   }
-  
+
   posix_memalign((void **)&event_align_pairs_host, AOCL_ALIGNMENT, 2 * sum_n_events * sizeof(AlignedPair));
   MALLOC_CHK(event_align_pairs_host);
 
@@ -421,7 +421,7 @@ void align_ocl(core_t *core, db_t *db)
   //n_events
   if (core->opt.verbosity > 1)
     print_size("n_events", n_bam_rec * sizeof(size_t));
-  cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(size_t), n_events_host, &status);
+  cl_mem n_events = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_bam_rec * sizeof(int32_t), n_events_host, &status);
   checkError(status, "Failed clCreateBuffer");
 
   //event ptr
@@ -973,7 +973,7 @@ void host_pre_processing(AlignedPair *event_align_pairs,
                          int32_t *n_event_align_pairs,
                          char *read, int32_t *read_len,
                          ptr_t *read_ptr, event_t *event_table,
-                         size_t *n_events1, ptr_t *event_ptr,
+                         int32_t *n_events1, ptr_t *event_ptr,
                          scalings_t *scalings, model_t *models,
                          int32_t n_bam_rec, uint32_t *kmer_ranks1,
                          float *band, uint8_t *traces,
@@ -1104,7 +1104,7 @@ void host_post_processing(AlignedPair *event_align_pairs,
                           int32_t *n_event_align_pairs,
                           char *read, int32_t *read_len,
                           ptr_t *read_ptr, event_t *event_table,
-                          size_t *n_events1, ptr_t *event_ptr,
+                          int32_t *n_events1, ptr_t *event_ptr,
                           scalings_t *scalings, model_t *models,
                           int32_t n_bam_rec, uint32_t *kmer_ranks1,
                           float *band, uint8_t *traces,
